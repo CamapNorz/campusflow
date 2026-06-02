@@ -361,7 +361,11 @@ export default function Dashboard() {
         task?.assignee === currentUser?.name ||
         task?.createdBy === authUser?.uid
     const canEditTask = (task) => currentUser?.isLeader || isTaskOwner(task)
-    const canActOnTask = (task) => isTaskOwner(task)
+    const canActOnTask = () => currentUser?.isLeader
+    const matchesAssigneeFilter = (task, assignee) =>
+        assignee === "all" ||
+        task.assignee === assignee ||
+        task.assignee === ALL_ASSIGNEE
 
     const startOfThisWeek = (() => {
         const now = new Date()
@@ -1091,7 +1095,7 @@ export default function Dashboard() {
     }
     const pageGanttItems = ganttItems.filter((item) => {
         const task = item.task
-        if (ganttFilters.assignee !== "all" && task.assignee !== ganttFilters.assignee) {
+        if (!matchesAssigneeFilter(task, ganttFilters.assignee)) {
             return false
         }
         if (
@@ -1268,7 +1272,7 @@ export default function Dashboard() {
     }
 
     const filteredTasks = tasks.filter((task) => {
-        if (taskFilters.assignee !== "all" && task.assignee !== taskFilters.assignee) {
+        if (!matchesAssigneeFilter(task, taskFilters.assignee)) {
             return false
         }
         if (taskFilters.taskType !== "all" && task.taskType !== taskFilters.taskType) {
@@ -2640,7 +2644,8 @@ export default function Dashboard() {
                                                 collapsibleDetails: true,
                                             })}
                                             <button
-                                                className="text-xs text-blue-500 mt-2"
+                                                className="text-xs text-blue-500 mt-2 disabled:cursor-not-allowed disabled:text-gray-300"
+                                                disabled={!canActOnTask(task)}
                                                 onClick={() => handleStartTask(task)}
                                             >
                                                 → 開始
@@ -2689,7 +2694,8 @@ export default function Dashboard() {
                                                 collapsibleDetails: true,
                                             })}
                                             <button
-                                                className="text-xs text-green-500 mt-2"
+                                                className="text-xs text-green-500 mt-2 disabled:cursor-not-allowed disabled:text-gray-300"
+                                                disabled={!canActOnTask(task)}
                                                 onClick={() => handleCompleteTask(task)}
                                             >
                                                 → 完成

@@ -48,10 +48,6 @@ service cloud.firestore {
         .hasOnly(["status", "done", "startedAt", "finishedAt", "updatedAt", "updatedBy"]);
     }
 
-    function isTaskOwner() {
-      return resource.data.assignee == userName();
-    }
-
     function canChangeProfileName() {
       return request.resource.data.name == resource.data.name ||
         !resource.data.keys().hasAny(['lastNameChangedAt']) ||
@@ -107,7 +103,7 @@ service cloud.firestore {
           && (
             (
               changedOnlyStatusAction()
-              && isTaskOwner()
+              && isGroupLeader(groupId)
               && request.resource.data.assignee == resource.data.assignee
             ) ||
             (
