@@ -6,16 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "bot": "node bot/index.js",
-    "bot:commands": "node bot/register-commands.js",
+    "bot:commands": "node worker/register-commands.js",
+    "worker:deploy": "wrangler deploy",
+    "worker:dev": "wrangler dev",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
     "firebase": "^12.12.1",
-    "firebase-admin": "^13.10.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2"
@@ -32,6 +31,7 @@
     "globals": "^17.5.0",
     "postcss": "^8.5.12",
     "tailwindcss": "^3.4.13",
-    "vite": "^8.0.10"
+    "vite": "^8.0.10",
+    "wrangler": "^4.96.0"
   }
 }

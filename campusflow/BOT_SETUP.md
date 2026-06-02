@@ -1,56 +1,79 @@
-# CampusFlow Discord Bot
+# CampusFlow Discord Bot：Cloudflare Workers 免費部署
 
-## Discord 邀請連結
+這版不使用 Render worker，改用 Cloudflare Workers：
 
-把 bot 加到伺服器時可用這個連結：
+- Discord slash commands 由 Worker 的 `/interactions` 接收。
+- 到期提醒、新增任務提醒、問題回報轉發由 Cloudflare Cron 每 15 分鐘檢查一次。
+- 不需要常駐 Node process，比 Render background worker 更適合免費部署。
+
+## 1. 需要準備的資料
+
+Discord Developer Portal：
 
 ```text
-https://discord.com/oauth2/authorize?client_id=1510658803002249296&permissions=2147485696&integration_type=0&scope=bot+applications.commands
+DISCORD_TOKEN=Bot Token
+DISCORD_CLIENT_ID=1510658803002249296
+DISCORD_PUBLIC_KEY=General Information 頁面的 Public Key
 ```
 
-## 本機或部署環境變數
-
-必要：
+Firebase Console > 專案設定 > 服務帳戶 > 產生新的私密金鑰：
 
 ```text
-DISCORD_TOKEN=你的 Discord bot token
-DISCORD_CLIENT_ID=1510658803002249296
+FIREBASE_SERVICE_ACCOUNT_JSON=整份 service account JSON
 FIREBASE_PROJECT_ID=campusflow-3edb8
 ```
 
-Render / Railway 上還需要 Firebase Admin 憑證，二選一：
+## 2. 登入 Cloudflare
 
-```text
-FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+```bash
+npx wrangler login
 ```
 
-或：
+## 3. 設定 Cloudflare Worker secrets
 
-```text
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+```bash
+npx wrangler secret put DISCORD_TOKEN
+npx wrangler secret put DISCORD_PUBLIC_KEY
+npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_JSON
 ```
 
-可選：
+`DISCORD_CLIENT_ID` 和 `FIREBASE_PROJECT_ID` 已寫在 `wrangler.toml`。
 
-```text
-BOT_CHECK_INTERVAL_MS=300000
+## 4. 部署 Worker
+
+```bash
+npm run worker:deploy
 ```
 
-## 啟動流程
+部署後會得到類似：
 
-先註冊 Discord slash commands：
+```text
+https://campusflow-discord-bot.<你的帳號>.workers.dev
+```
+
+## 5. 設定 Discord Interactions Endpoint URL
+
+到 Discord Developer Portal > 你的 Application > General Information：
+
+```text
+https://campusflow-discord-bot.<你的帳號>.workers.dev/interactions
+```
+
+按 Save。
+
+## 6. 註冊 Slash Commands
 
 ```bash
 npm run bot:commands
 ```
 
-再啟動 bot：
+## 7. 邀請 Bot 到伺服器
 
-```bash
-npm run bot
+```text
+https://discord.com/oauth2/authorize?client_id=1510658803002249296&permissions=2147485696&integration_type=0&scope=bot+applications.commands
 ```
 
-## Discord 指令
+## 8. Discord 指令
 
 ```text
 /bind group_code
@@ -62,7 +85,7 @@ npm run bot
 /campusflow-help
 ```
 
-`/set-report-channel` 需要 Discord 的「管理伺服器」權限。網站上的「問題回報」會送到這個頻道。
+`/set-report-channel` 會把網站「問題回報」轉發到目前頻道。
 
 ## 提醒規則
 

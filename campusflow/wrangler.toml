@@ -1,0 +1,10 @@
+name = "campusflow-discord-bot"
+main = "worker/discord-worker.js"
+compatibility_date = "2026-06-02"
+
+[vars]
+DISCORD_CLIENT_ID = "1510658803002249296"
+FIREBASE_PROJECT_ID = "campusflow-3edb8"
+
+[triggers]
+crons = ["*/15 * * * *"]
