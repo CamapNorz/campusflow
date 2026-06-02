@@ -1,0 +1,17 @@
+services:
+  - type: worker
+    name: campusflow-discord-bot
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm run bot
+    envVars:
+      - key: DISCORD_CLIENT_ID
+        value: "1510658803002249296"
+      - key: FIREBASE_PROJECT_ID
+        value: campusflow-3edb8
+      - key: BOT_CHECK_INTERVAL_MS
+        value: "300000"
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false

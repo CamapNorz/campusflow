@@ -1,0 +1,156 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDocExists() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function userName() {
+      return userDocExists() ? userData().name : "";
+    }
+
+    function userGroupId() {
+      return userDocExists() ? userData().groupId : "";
+    }
+
+    function isGroupMember(groupId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    function isGroupLeader(groupId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/groups/$(groupId)) &&
+        get(/databases/$(database)/documents/groups/$(groupId)).data.leaderUid == request.auth.uid;
+    }
+
+    function canAssignTask(groupId, data) {
+      return isGroupLeader(groupId) || data.assignee == userName();
+    }
+
+    function canEditTask(groupId) {
+      return isGroupLeader(groupId) ||
+        resource.data.assignee == userName();
+    }
+
+    function changedOnlyStatusAction() {
+      return request.resource.data.diff(resource.data).changedKeys()
+        .hasOnly(["status", "done", "startedAt", "finishedAt", "updatedAt", "updatedBy"]);
+    }
+
+    function isTaskOwner() {
+      return resource.data.assignee == userName();
+    }
+
+    function canChangeProfileName() {
+      return request.resource.data.name == resource.data.name ||
+        !resource.data.keys().hasAny(['lastNameChangedAt']) ||
+        request.time >= resource.data.lastNameChangedAt + duration.value(24, 'h');
+    }
+
+    function hasValidNameChangeTimestamp() {
+      return request.resource.data.name == resource.data.name ||
+        request.resource.data.lastNameChangedAt == request.time;
+    }
+
+    match /groups/{groupId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.leaderUid == request.auth.uid;
+      allow update: if isGroupLeader(groupId)
+        && request.resource.data.leaderUid == resource.data.leaderUid;
+      allow delete: if false;
+
+      match /members/{uid} {
+        allow read: if isGroupMember(groupId);
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.name is string
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && request.resource.data.name == get(/databases/$(database)/documents/users/$(uid)).data.name
+          && exists(/databases/$(database)/documents/groups/$(groupId));
+        allow delete: if false;
+      }
+
+      match /tasks/{taskId} {
+        allow read: if isGroupMember(groupId);
+
+        allow create: if isGroupMember(groupId)
+          && request.resource.data.groupId == groupId
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.assignee is string
+          && canAssignTask(groupId, request.resource.data)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdByName == userName();
+
+        allow update: if isGroupMember(groupId)
+          && request.resource.data.groupId == resource.data.groupId
+          && request.resource.data.groupId == groupId
+          && request.resource.data.text is string
+          && request.resource.data.assignee is string
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdByName == resource.data.createdByName
+          && (
+            (
+              changedOnlyStatusAction()
+              && isTaskOwner()
+              && request.resource.data.assignee == resource.data.assignee
+            ) ||
+            (
+              !changedOnlyStatusAction()
+              && canEditTask(groupId)
+              && canAssignTask(groupId, request.resource.data)
+            )
+          );
+
+        allow delete: if isGroupLeader(groupId);
+      }
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() &&
+        (request.auth.uid == uid || resource.data.groupId == userGroupId());
+      allow list: if false;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.groupId is string
+        && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId));
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.groupId is string
+        && request.resource.data.groupId == resource.data.groupId
+        && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+        && canChangeProfileName()
+        && hasValidNameChangeTimestamp();
+      allow delete: if false;
+    }
+
+    match /issueReports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.groupId is string
+        && isGroupMember(request.resource.data.groupId)
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.message is string
+        && request.resource.data.message.size() >= 3
+        && request.resource.data.message.size() <= 500
+        && request.resource.data.discordForwarded == false;
+      allow read, update, delete: if false;
+    }
+  }
+}
