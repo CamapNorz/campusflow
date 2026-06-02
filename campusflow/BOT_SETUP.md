@@ -84,10 +84,13 @@ https://discord.com/oauth2/authorize?client_id=1510658803002249296&permissions=2
 /unfinished name
 /task keyword
 /set-report-channel
+/approve-teacher uid
+/reject-teacher uid
 /campusflow-help
 ```
 
 `/set-report-channel` 會把網站「問題回報」轉發到目前頻道。
+老師申請會一樣轉發到問題回報頻道；審核時複製訊息裡的 UID，使用 `/approve-teacher uid` 或 `/reject-teacher uid`。
 
 ## 提醒規則
 

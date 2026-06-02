@@ -73,6 +73,32 @@ const commands = [
         description: "把這個頻道設為網站問題回報接收處",
         default_member_permissions: "32",
     },
+    {
+        name: "approve-teacher",
+        description: "審核通過指導老師帳號",
+        default_member_permissions: "32",
+        options: [
+            {
+                type: 3,
+                name: "uid",
+                description: "Firebase 使用者 UID",
+                required: true,
+            },
+        ],
+    },
+    {
+        name: "reject-teacher",
+        description: "退回指導老師帳號申請",
+        default_member_permissions: "32",
+        options: [
+            {
+                type: 3,
+                name: "uid",
+                description: "Firebase 使用者 UID",
+                required: true,
+            },
+        ],
+    },
     { name: "campusflow-help", description: "顯示 CampusFlow bot 指令" },
 ]
 
@@ -125,6 +151,8 @@ async function handleCommand(interaction, env) {
     if (name === "unfinished") return listUnfinishedTasks(env, guildId, channelId, options.name)
     if (name === "task") return searchTask(env, guildId, channelId, options.keyword)
     if (name === "set-report-channel") return setReportChannel(env, guildId, channelId, interaction.member?.user?.id)
+    if (name === "approve-teacher") return reviewTeacher(env, options.uid, "approved")
+    if (name === "reject-teacher") return reviewTeacher(env, options.uid, "rejected")
     if (name === "campusflow-help") return help()
 
     return commandResponse("未知指令。", true)
@@ -237,6 +265,24 @@ async function setReportChannel(env, guildId, channelId, discordUserId) {
     return commandResponse("已將這個頻道設定為 CampusFlow 問題回報接收處。")
 }
 
+async function reviewTeacher(env, uid, status) {
+    const user = await getDoc(env, `users/${uid}`)
+    if (!user || user.role !== "teacher") {
+        return commandResponse("找不到這個指導老師帳號，請確認 UID 是否正確。", true)
+    }
+
+    await patchDoc(env, `users/${uid}`, {
+        teacherStatus: status,
+        reviewedAt: new Date(),
+    })
+
+    return commandResponse(
+        status === "approved"
+            ? `已通過 ${user.name ?? uid} 的指導老師權限。`
+            : `已退回 ${user.name ?? uid} 的指導老師申請。`
+    )
+}
+
 function help() {
     return commandResponse([
         "**CampusFlow Bot 指令**",
@@ -247,6 +293,8 @@ function help() {
         "`/unfinished name` 查看指定成員未完成任務",
         "`/task keyword` 搜尋單一任務詳細內容",
         "`/set-report-channel` 設定網站問題回報送達頻道",
+        "`/approve-teacher uid` 通過指導老師帳號",
+        "`/reject-teacher uid` 退回指導老師帳號",
         "`/unbind` 解除綁定",
     ].join("\n"))
 }

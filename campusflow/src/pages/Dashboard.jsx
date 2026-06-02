@@ -55,6 +55,8 @@ export default function Dashboard() {
     const [nameError, setNameError] = useState("")
     const [issueReportText, setIssueReportText] = useState("")
     const [issueReportStatus, setIssueReportStatus] = useState("")
+    const [teacherGroupCodeInput, setTeacherGroupCodeInput] = useState("")
+    const [teacherJoinError, setTeacherJoinError] = useState("")
     const [input, setInput] = useState("")
     const [detailsInput, setDetailsInput] = useState("")
     const [assigneeInput, setAssigneeInput] = useState(currentUser?.name ?? BASE_MEMBER_OPTIONS[0])
@@ -202,6 +204,8 @@ export default function Dashboard() {
                     name: data.name ?? authUser.displayName ?? "",
                     role: data.role ?? "member",
                     groupId: data.groupId ?? "",
+                    groupName: data.groupName ?? "",
+                    teacherStatus: data.teacherStatus ?? "",
                     lastNameChangedAt: data.lastNameChangedAt ?? null,
                 })
             },
@@ -211,6 +215,8 @@ export default function Dashboard() {
                     name: authUser.displayName ?? "",
                     role: "member",
                     groupId: "",
+                    groupName: "",
+                    teacherStatus: "",
                     lastNameChangedAt: null,
                 })
             }
@@ -273,10 +279,14 @@ export default function Dashboard() {
             uid: userProfile?.uid ?? authUser.uid,
             name: userProfile?.name ?? authUser.displayName ?? "",
             role:
-                currentGroup?.leaderUid === authUser.uid ? "leader" : "member",
+                currentGroup?.leaderUid === authUser.uid
+                    ? "leader"
+                    : userProfile?.role ?? "member",
             groupId: userProfile?.groupId ?? "",
             groupName: currentGroup?.name ?? "",
             isLeader: currentGroup?.leaderUid === authUser.uid,
+            isTeacher: userProfile?.role === "teacher",
+            teacherStatus: userProfile?.teacherStatus ?? "",
             lastNameChangedAt: userProfile?.lastNameChangedAt ?? null,
         })
     }, [authUser, userProfile, currentGroup])
@@ -351,16 +361,20 @@ export default function Dashboard() {
     const assigneeOptions = [ALL_ASSIGNEE, ...memberOptions]
     const filterAssigneeOptions = memberOptions
     const assignableOptions =
-        currentUser?.isLeader
+        currentUser?.isTeacher
+            ? []
+            : currentUser?.isLeader
             ? assigneeOptions
             : currentUser?.name
               ? [currentUser.name]
               : []
+    const canCreateTasks = currentUser && !currentUser.isTeacher
     const canDeleteTasks = currentUser?.isLeader
     const isTaskOwner = (task) =>
         task?.assignee === currentUser?.name ||
         task?.createdBy === authUser?.uid
-    const canEditTask = (task) => currentUser?.isLeader || isTaskOwner(task)
+    const canEditTask = (task) =>
+        !currentUser?.isTeacher && (currentUser?.isLeader || isTaskOwner(task))
     const canActOnTask = () => currentUser?.isLeader
     const matchesAssigneeFilter = (task, assignee) =>
         assignee === "all" ||
@@ -433,13 +447,19 @@ export default function Dashboard() {
 
     const GANTT_RANGE_START = new Date(2026, 4, 1, 0, 0, 0, 0) // 2026/05/01
     const GANTT_RANGE_END = new Date(2028, 5, 30, 23, 59, 59, 999) // 2028/06/30
+    const startOfGanttDay = (date) =>
+        new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
+    const endOfGanttDay = (date) =>
+        new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 0, 0, 0, 0)
 
     const ganttItems = tasks
         .filter((task) => task.taskType === "畢業專題")
         .map((task) => {
-            const startDate =
+            const rawStartDate =
                 tsToDate(task.startedAt) ?? tsToDate(task.createdAt)
-            const endDate = tsToDate(task.deadlineAt) ?? tsToDate(task.finishedAt)
+            const rawEndDate = tsToDate(task.deadlineAt) ?? tsToDate(task.finishedAt)
+            const startDate = rawStartDate ? startOfGanttDay(rawStartDate) : null
+            const endDate = rawEndDate ? endOfGanttDay(rawEndDate) : null
             return startDate && endDate ? { task, startDate, endDate } : null
         })
         .filter(Boolean)
@@ -695,6 +715,7 @@ export default function Dashboard() {
 
     const handleAddTask = async () => {
         const text = input.trim()
+        if (!canCreateTasks) return
         if (!text) return
 
         const details = detailsInput.trim()
@@ -778,6 +799,57 @@ export default function Dashboard() {
             }
             let groupId = groupCode
             let groupName = ""
+
+            if (loginRole === "teacher") {
+                await setDoc(
+                    doc(db, "users", credential.user.uid),
+                    {
+                        name,
+                        role: "teacher",
+                        teacherStatus: "pending",
+                        groupId: "",
+                        groupName: "",
+                        displayName: name,
+                        email: credential.user.email ?? "",
+                        photoURL: credential.user.photoURL ?? "",
+                        provider: "google",
+                        updatedAt: serverTimestamp(),
+                        createdAt: serverTimestamp(),
+                    },
+                    { merge: true }
+                )
+                await addDoc(collection(db, "issueReports"), {
+                    groupId: "__teacher_review__",
+                    groupName: "指導老師審核",
+                    reporterUid: credential.user.uid,
+                    reporterName: name,
+                    reporterRole: "teacher",
+                    page: "teacher-signup",
+                    message: `指導老師帳號申請：${name}，Email：${credential.user.email ?? "未提供"}，UID：${credential.user.uid}`,
+                    discordForwarded: false,
+                    createdAt: serverTimestamp(),
+                })
+                setUserProfile({
+                    uid: credential.user.uid,
+                    name,
+                    role: "teacher",
+                    groupId: "",
+                    groupName: "",
+                    teacherStatus: "pending",
+                })
+                setCurrentUser({
+                    uid: credential.user.uid,
+                    name,
+                    role: "teacher",
+                    groupId: "",
+                    groupName: "",
+                    isLeader: false,
+                    isTeacher: true,
+                    teacherStatus: "pending",
+                })
+                setLoginError("")
+                return
+            }
 
             if (loginRole === "leader") {
                 const groupRef = await addDoc(collection(db, "groups"), {
@@ -985,7 +1057,56 @@ export default function Dashboard() {
         }
     }
 
-    const needsInitialSetup = authReady && authUser && !userProfile?.groupId
+    const handleTeacherJoinGroup = async () => {
+        const groupCode = teacherGroupCodeInput.trim()
+        if (!authUser || !userProfile || !groupCode) return
+        setTeacherJoinError("")
+
+        try {
+            const groupSnapshot = await getDoc(doc(db, "groups", groupCode))
+            if (!groupSnapshot.exists()) {
+                setTeacherJoinError("找不到這個組別代碼，請確認是否複製完整。")
+                return
+            }
+
+            const groupName = groupSnapshot.data().name ?? ""
+            await updateDoc(doc(db, "users", authUser.uid), {
+                groupId: groupCode,
+                groupName,
+                updatedAt: serverTimestamp(),
+            })
+            await setDoc(
+                doc(db, "groups", groupCode, "members", authUser.uid),
+                {
+                    name: userProfile.name,
+                    role: "teacher",
+                    email: authUser.email ?? "",
+                    photoURL: authUser.photoURL ?? "",
+                    updatedAt: serverTimestamp(),
+                    joinedAt: serverTimestamp(),
+                },
+                { merge: true }
+            )
+            setTeacherGroupCodeInput("")
+        } catch (err) {
+            setTeacherJoinError(err?.message ?? String(err))
+        }
+    }
+
+    const isTeacherAccount = userProfile?.role === "teacher"
+    const isTeacherPending =
+        authReady &&
+        authUser &&
+        isTeacherAccount &&
+        userProfile?.teacherStatus !== "approved"
+    const isTeacherApprovedWithoutGroup =
+        authReady &&
+        authUser &&
+        isTeacherAccount &&
+        userProfile?.teacherStatus === "approved" &&
+        !userProfile?.groupId
+    const needsInitialSetup =
+        authReady && authUser && !userProfile?.groupId && !isTeacherAccount
     const shouldShowLogin = authReady && (!authUser || needsInitialSetup)
 
     const formatTs = (ts) => {
@@ -1293,6 +1414,66 @@ export default function Dashboard() {
     const getFilteredCalendarTasksForDayKey = (key) =>
         getTasksForDayKey(key).filter((task) => filteredTasks.includes(task))
 
+    if (isTeacherPending) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-stone-100 via-amber-50 to-stone-200 p-6 font-sans">
+                <div className="w-full max-w-lg rounded-2xl border border-amber-200 bg-stone-50 p-6 text-center shadow-xl">
+                    <h1 className="text-2xl font-bold text-stone-900">
+                        指導老師權限審核中
+                    </h1>
+                    <p className="mt-3 text-sm leading-6 text-stone-600">
+                        你的申請已送出，系統已透過問題回報通知管理者。審核通過後，再回到這裡輸入組別代碼即可查看指導組別。
+                    </p>
+                    <button
+                        className="mt-5 rounded bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-950"
+                        onClick={handleLogout}
+                    >
+                        登出
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
+    if (isTeacherApprovedWithoutGroup) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-stone-100 via-amber-50 to-stone-200 p-6 font-sans">
+                <div className="w-full max-w-lg rounded-2xl border border-amber-200 bg-stone-50 p-6 shadow-xl">
+                    <h1 className="text-2xl font-bold text-stone-900">
+                        輸入指導組別代碼
+                    </h1>
+                    <p className="mt-2 text-sm text-stone-600">
+                        請向學生組長索取組別代碼。輸入後，這個老師帳號會加入該組的查看空間。
+                    </p>
+                    <input
+                        className="mt-4 w-full rounded border border-stone-300 bg-white p-2"
+                        value={teacherGroupCodeInput}
+                        onChange={(e) => setTeacherGroupCodeInput(e.target.value)}
+                        placeholder="組別代碼"
+                    />
+                    {teacherJoinError ? (
+                        <p className="mt-2 text-sm text-red-600">{teacherJoinError}</p>
+                    ) : null}
+                    <div className="mt-4 flex gap-2">
+                        <button
+                            className="flex-1 rounded bg-amber-700 px-4 py-2 font-medium text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={handleTeacherJoinGroup}
+                            disabled={!teacherGroupCodeInput.trim()}
+                        >
+                            加入組別
+                        </button>
+                        <button
+                            className="rounded border border-stone-300 px-4 py-2 text-stone-600 hover:bg-white"
+                            onClick={handleLogout}
+                        >
+                            登出
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="flex min-h-screen bg-gradient-to-br from-stone-100 via-amber-50 to-stone-200 font-sans">
             {currentUser?.groupName ? (
@@ -1357,6 +1538,7 @@ export default function Dashboard() {
                                 >
                                     <option value="member">組員</option>
                                     <option value="leader">組長</option>
+                                    <option value="teacher">指導老師</option>
                                 </select>
                             </div>
                             {loginRole === "leader" ? (
@@ -1373,7 +1555,7 @@ export default function Dashboard() {
                                         placeholder="例如：智慧校園排程系統"
                                     />
                                 </div>
-                            ) : (
+                            ) : loginRole === "member" ? (
                                 <div>
                                     <label className="text-sm text-stone-600">
                                         空間代碼
@@ -1386,6 +1568,10 @@ export default function Dashboard() {
                                         }
                                         placeholder="請輸入組長提供的代碼"
                                     />
+                                </div>
+                            ) : (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-stone-700">
+                                    指導老師帳號建立後會先等待審核，通過前不會看到任何組別資料。
                                 </div>
                             )}
                             {loginError ? (
@@ -1500,6 +1686,33 @@ export default function Dashboard() {
                                         {copiedGroupCode ? "已複製" : "複製"}
                                     </button>
                                 </div>
+                            </div>
+                        ) : null}
+                        {currentUser.isTeacher ? (
+                            <div className="mt-2 rounded border border-amber-200 bg-white/70 p-2 text-xs text-stone-600">
+                                <div className="font-semibold text-stone-800">
+                                    切換指導組別
+                                </div>
+                                <div className="mt-2 flex gap-2">
+                                    <input
+                                        className="min-w-0 flex-1 rounded border border-stone-300 bg-white px-2 py-1 text-xs"
+                                        value={teacherGroupCodeInput}
+                                        onChange={(e) => setTeacherGroupCodeInput(e.target.value)}
+                                        placeholder="組別代碼"
+                                    />
+                                    <button
+                                        className="shrink-0 rounded border border-amber-300 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                        onClick={handleTeacherJoinGroup}
+                                        disabled={!teacherGroupCodeInput.trim()}
+                                    >
+                                        查看
+                                    </button>
+                                </div>
+                                {teacherJoinError ? (
+                                    <p className="mt-1 text-[11px] text-red-600">
+                                        {teacherJoinError}
+                                    </p>
+                                ) : null}
                             </div>
                         ) : null}
                         <button
@@ -2610,7 +2823,8 @@ export default function Dashboard() {
                         />
 
                         <button
-                            className="bg-blue-500 text-white px-3 rounded"
+                            className="bg-blue-500 text-white px-3 rounded disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={!canCreateTasks}
                             onClick={handleAddTask}
                         >
                             新增

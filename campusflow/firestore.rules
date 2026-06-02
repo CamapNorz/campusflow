@@ -23,6 +23,10 @@ service cloud.firestore {
       return userDocExists() ? userData().groupId : "";
     }
 
+    function userRole() {
+      return userDocExists() ? userData().role : "";
+    }
+
     function isGroupMember(groupId) {
       return signedIn() &&
         exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
@@ -35,12 +39,13 @@ service cloud.firestore {
     }
 
     function canAssignTask(groupId, data) {
-      return isGroupLeader(groupId) || data.assignee == userName();
+      return isGroupLeader(groupId) ||
+        (userRole() != "teacher" && data.assignee == userName());
     }
 
     function canEditTask(groupId) {
       return isGroupLeader(groupId) ||
-        resource.data.assignee == userName();
+        (userRole() != "teacher" && resource.data.assignee == userName());
     }
 
     function changedOnlyStatusAction() {
@@ -57,6 +62,32 @@ service cloud.firestore {
     function hasValidNameChangeTimestamp() {
       return request.resource.data.name == resource.data.name ||
         request.resource.data.lastNameChangedAt == request.time;
+    }
+
+    function isPendingTeacherProfile(data) {
+      return data.role == "teacher" &&
+        data.teacherStatus == "pending" &&
+        data.groupId == "";
+    }
+
+    function isApprovedTeacherJoiningGroup() {
+      return resource.data.role == "teacher" &&
+        resource.data.teacherStatus == "approved" &&
+        request.resource.data.role == "teacher" &&
+        request.resource.data.teacherStatus == "approved" &&
+        request.resource.data.groupId is string &&
+        request.resource.data.groupId.size() > 0 &&
+        exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId));
+    }
+
+    function isTeacherReviewReport() {
+      return request.resource.data.groupId == "__teacher_review__" &&
+        request.resource.data.reporterRole == "teacher" &&
+        request.resource.data.reporterUid == request.auth.uid &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() >= 3 &&
+        request.resource.data.message.size() <= 500 &&
+        request.resource.data.discordForwarded == false;
     }
 
     match /groups/{groupId} {
@@ -125,27 +156,40 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.name is string
         && request.resource.data.groupId is string
-        && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId));
+        && (
+          exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId)) ||
+          isPendingTeacherProfile(request.resource.data)
+        );
       allow update: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.name is string
         && request.resource.data.groupId is string
-        && request.resource.data.groupId == resource.data.groupId
-        && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
-        && canChangeProfileName()
-        && hasValidNameChangeTimestamp();
+        && (
+          (
+            request.resource.data.groupId == resource.data.groupId
+            && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+            && canChangeProfileName()
+            && hasValidNameChangeTimestamp()
+          ) ||
+          isApprovedTeacherJoiningGroup()
+        );
       allow delete: if false;
     }
 
     match /issueReports/{reportId} {
       allow create: if signedIn()
         && request.resource.data.groupId is string
-        && isGroupMember(request.resource.data.groupId)
-        && request.resource.data.reporterUid == request.auth.uid
-        && request.resource.data.message is string
-        && request.resource.data.message.size() >= 3
-        && request.resource.data.message.size() <= 500
-        && request.resource.data.discordForwarded == false;
+        && (
+          (
+            isGroupMember(request.resource.data.groupId)
+            && request.resource.data.reporterUid == request.auth.uid
+            && request.resource.data.message is string
+            && request.resource.data.message.size() >= 3
+            && request.resource.data.message.size() <= 500
+            && request.resource.data.discordForwarded == false
+          ) ||
+          isTeacherReviewReport()
+        );
       allow read, update, delete: if false;
     }
   }
