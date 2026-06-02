@@ -43,6 +43,19 @@ const commands = [
         ],
     },
     { name: "due", description: "查看三天內到期與已超期任務" },
+    { name: "leaderboard", description: "查看 CampusFlow 任務排行榜" },
+    {
+        name: "unfinished",
+        description: "查詢指定成員尚未完成的任務",
+        options: [
+            {
+                type: 3,
+                name: "name",
+                description: "成員名稱",
+                required: true,
+            },
+        ],
+    },
     {
         name: "task",
         description: "用關鍵字搜尋任務內容",
@@ -108,6 +121,8 @@ async function handleCommand(interaction, env) {
     if (name === "unbind") return unbindGroup(env, guildId, channelId)
     if (name === "tasks") return listTasks(env, guildId, channelId, options)
     if (name === "due") return listDueTasks(env, guildId, channelId)
+    if (name === "leaderboard") return showLeaderboard(env, guildId, channelId)
+    if (name === "unfinished") return listUnfinishedTasks(env, guildId, channelId, options.name)
     if (name === "task") return searchTask(env, guildId, channelId, options.keyword)
     if (name === "set-report-channel") return setReportChannel(env, guildId, channelId, interaction.member?.user?.id)
     if (name === "campusflow-help") return help()
@@ -167,6 +182,38 @@ async function listDueTasks(env, guildId, channelId) {
     return commandResponse(`**即將到期 / 已超期**\n${tasks.map(formatTask).join("\n")}`)
 }
 
+async function showLeaderboard(env, guildId, channelId) {
+    const binding = await requireBinding(env, guildId, channelId)
+    if (!binding) return missingBinding()
+
+    const tasks = await getTasks(env, binding.groupId)
+    const members = getLeaderboardMembers(tasks)
+    if (!members.length) return commandResponse("目前還沒有可列入排行榜的成員。")
+
+    const leaderboard = buildLeaderboard(members, tasks)
+    const hasScores = leaderboard.some((entry) => entry.points !== 0)
+    const lines = leaderboard.slice(0, 10).map((entry) => {
+        const rank = hasScores ? `第 ${entry.rank} 名` : "尚無排名"
+        return `${rank}｜${entry.member}｜完成 ${entry.completedCount}｜積分 ${entry.points}｜超時 ${entry.overdueCount}`
+    })
+
+    return commandResponse(`**${binding.groupName || "CampusFlow"} 排行榜**\n${lines.join("\n")}`)
+}
+
+async function listUnfinishedTasks(env, guildId, channelId, memberName) {
+    const binding = await requireBinding(env, guildId, channelId)
+    if (!binding) return missingBinding()
+
+    const name = String(memberName ?? "").trim()
+    const tasks = (await getTasks(env, binding.groupId))
+        .filter((task) => task.status !== "done")
+        .filter((task) => task.assignee === name || task.assignee === "全員")
+        .slice(0, 12)
+
+    if (!tasks.length) return commandResponse(`${name} 目前沒有未完成任務。`)
+    return commandResponse(`**${name} 未完成任務**\n${tasks.map(formatTask).join("\n")}`)
+}
+
 async function searchTask(env, guildId, channelId, keyword) {
     const binding = await requireBinding(env, guildId, channelId)
     if (!binding) return missingBinding()
@@ -196,6 +243,8 @@ function help() {
         "`/bind group_code` 綁定這個頻道到組別",
         "`/tasks` 列出任務，可加 assignee/status 篩選",
         "`/due` 查看三天內到期與已超期任務",
+        "`/leaderboard` 查看排行榜",
+        "`/unfinished name` 查看指定成員未完成任務",
         "`/task keyword` 搜尋單一任務詳細內容",
         "`/set-report-channel` 設定網站問題回報送達頻道",
         "`/unbind` 解除綁定",
@@ -317,6 +366,75 @@ function formatTask(task) {
         : "未設定"
     const stars = "★".repeat(Number(task.importance ?? 0))
     return `• ${task.text}｜${task.assignee ?? "未指派"}｜${labels[task.status] ?? task.status}｜截止：${deadline}${stars ? `｜${stars}` : ""}`
+}
+
+function getLeaderboardMembers(tasks) {
+    return Array.from(
+        new Set(
+            tasks
+                .map((task) => task.assignee)
+                .filter((assignee) => assignee && assignee !== "全員")
+        )
+    )
+}
+
+function buildLeaderboard(members, tasks) {
+    const entries = members
+        .map((member) => {
+            const memberTasks = tasks.filter(
+                (task) => task.assignee === member || task.assignee === "全員"
+            )
+            const completedTasks = memberTasks.filter((task) => task.status === "done")
+            const overdueTasks = memberTasks.filter((task) => getLateDays(task) > 0)
+            const points = memberTasks.reduce(
+                (total, task) => total + getTaskPoints(task),
+                0
+            )
+
+            return {
+                member,
+                completedCount: completedTasks.length,
+                overdueCount: overdueTasks.length,
+                points,
+            }
+        })
+        .sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points
+            if (b.completedCount !== a.completedCount) return b.completedCount - a.completedCount
+            return a.member.localeCompare(b.member, "zh-Hant")
+        })
+
+    return entries.map((entry, index, list) => {
+        const previous = list[index - 1]
+        const rank =
+            previous && previous.points === entry.points
+                ? previous.rank
+                : index + 1
+        return { ...entry, rank }
+    })
+}
+
+function getImportance(task) {
+    return Math.min(5, Math.max(1, Number(task.importance ?? 3)))
+}
+
+function getLateDays(task) {
+    const deadline = task.deadlineAt
+    if (!deadline) return 0
+    const comparison = task.status === "done" ? task.finishedAt : new Date()
+    if (!comparison || comparison <= deadline) return 0
+    return Math.max(1, Math.ceil((comparison.getTime() - deadline.getTime()) / DAY_MS))
+}
+
+function getLatePenalty(task) {
+    const lateDays = getLateDays(task)
+    if (!lateDays) return 0
+    return Math.ceil(getImportance(task) * 5 * Math.pow(1.25, lateDays - 1))
+}
+
+function getTaskPoints(task) {
+    const reward = task.status === "done" ? getImportance(task) * 10 : 0
+    return reward - getLatePenalty(task)
 }
 
 function bindingId(guildId, channelId) {

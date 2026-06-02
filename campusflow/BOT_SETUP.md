@@ -80,6 +80,8 @@ https://discord.com/oauth2/authorize?client_id=1510658803002249296&permissions=2
 /unbind
 /tasks
 /due
+/leaderboard
+/unfinished name
 /task keyword
 /set-report-channel
 /campusflow-help
