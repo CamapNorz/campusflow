@@ -12,5 +12,9 @@ React 19, Vite, Tailwind and Firebase Auth/Firestore. Google authentication; lea
 ## Constraints
 Preserve Firestore schema, access rules, teacher approval, original functions and Discord worker. No file deletion without the user's consent. Do not publish or write sample data into the live backend as part of preview. Use explicit sample labeling for demo data. Keep Traditional Chinese and responsive keyboard-accessible UI.
 
-## Open decisions
-User has delegated visual presentation changes. No supplied visual reference. Primary audience balance is awaiting optional user feedback.
+## Confirmed direction
+The user selected Project Studio: navy navigation and a light workspace. Preserve existing student and teacher workflows. Use direct Traditional Chinese field labels and remove slogans. Avoid green in all new design unless the user explicitly allows it; existing saved Gantt colors must not be silently rewritten.
+
+The Gantt uses precise timestamps with adjustable scales and a presentation mode, plus full-result PNG/SVG export. It represents stored task dates rather than a separate planned-versus-actual schedule.
+
+Implementation and verification status: [HANDOFF.md](../HANDOFF.md). There are no pending visual-direction questions; follow the next user request rather than restarting discovery.

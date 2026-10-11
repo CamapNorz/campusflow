@@ -101,9 +101,9 @@ Paper is the application canvas, white is the working surface, ink is primary te
 
 Status is also written in text: blue-gray for pending, amber for doing, purple for completed, and warm red for overdue or errors. Success feedback uses blue. Preserve user-selected Gantt colors; do not silently reinterpret saved values.
 
-The Gantt report adds muted blue-gray label text, pale alternating month bands and a blue-tinted detail surface. Saved report bar choices may include amber, green, slate, rose and indigo; these are data colors, not additions to the application brand palette.
+The Gantt report adds muted blue-gray label text, pale alternating month bands and a blue-tinted detail surface. Legacy report choices and saved data may still include green. This is an existing implementation discrepancy, not permission to use green in new design. The user's latest requirement prohibits green unless explicitly allowed; preserve saved values and handle the legacy palette deliberately in a future UI change.
 
-**The Action Color Rule.** Use blue to clarify interaction and purple for completion; do not introduce green as a new brand accent.
+**The Action Color Rule.** Use blue to clarify interaction and purple for completion; avoid green in all new design unless the user explicitly allows it. This requirement takes precedence over older wording in `.impeccable/design.json`.
 
 ## Typography
 
