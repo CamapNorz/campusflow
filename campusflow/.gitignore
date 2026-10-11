@@ -30,3 +30,4 @@ dist-ssr
 
 # Locally generated visual review evidence.
 .impeccable/review/
+.firebase/

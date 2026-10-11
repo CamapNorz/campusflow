@@ -1,0 +1,24 @@
+.drive-directory { min-width:0; }
+.drive-connection { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:18px; }
+.drive-connection h2 { font-size:18px; margin-bottom:8px; }
+.drive-connection p, .drive-privacy { font-size:14px; line-height:1.85; color:var(--muted); max-width:70ch; }
+.drive-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.drive-actions a { text-decoration:none; display:inline-flex; align-items:center; gap:8px; }
+.drive-breadcrumb { display:flex; flex-wrap:wrap; gap:6px; padding:18px 0; font-size:14px; overflow-wrap:anywhere; }
+.drive-breadcrumb .text-action { font-size:inherit; }
+.drive-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.drive-toolbar .search-field { flex:1 1 260px; min-width:0; }
+.drive-result-status { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin:18px 0 12px; font-size:13px; color:var(--muted); }
+.drive-table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:#fff; }
+.drive-table { width:100%; border-collapse:collapse; text-align:left; font-size:14px; min-width:720px; }
+.drive-table th { background:#eef2f8; color:var(--ink); font-size:13px; font-weight:600; padding:14px 16px; white-space:nowrap; }
+.drive-table td { padding:16px; border-top:1px solid var(--line); vertical-align:top; line-height:1.7; }
+.drive-table th:first-child { width:38%; }
+.drive-table td:nth-child(3) { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.drive-file-name { display:flex; align-items:flex-start; gap:10px; overflow-wrap:anywhere; }
+.drive-file-name svg { flex-shrink:0; margin-top:3px; }
+.drive-file-name button, .drive-file-name a { text-align:left; overflow-wrap:anywhere; font-size:14px; }
+.drive-table a { color:var(--blue); }
+.drive-table td:last-child a { display:block; }
+.drive-more { margin-top:16px; }
+@media (max-width:650px) { .drive-connection p, .drive-privacy { font-size:15px; } .drive-toolbar .search-field { flex:1 1 100%; } .drive-toolbar select { flex:1 1 calc(50% - 5px); min-width:0; } .drive-toolbar input { font-size:16px; } .drive-actions { width:100%; } }

@@ -25,6 +25,7 @@ import {
 import Icon from "../components/Icon"
 import Overview from "../components/Overview"
 import FileGuidelines from "../components/FileGuidelines"
+import DriveDirectory from "../components/DriveDirectory"
 import GanttChart from "../components/GanttChart"
 import { scheduledRows } from "../lib/gantt"
 import { createDemoTasks, createDemoUser } from "../lib/demo"
@@ -87,7 +88,7 @@ export default function Dashboard({ demo = false, demoRole = "leader" }) {
     const [tasksError, setTasksError] = useState(null)
     const [activePage, setActivePage] = useState(() => {
         const view = new URLSearchParams(window.location.search).get("view")
-        return ["tasks", "calendar", "gantt", "leaderboard", "files"].includes(view) ? view : "dashboard"
+        return ["tasks", "calendar", "gantt", "leaderboard", "files", "drive"].includes(view) ? view : "dashboard"
     })
     const [calendarCursor, setCalendarCursor] = useState(() => new Date())
     const [selectedDateKey, setSelectedDateKey] = useState(null)
@@ -1654,7 +1655,7 @@ export default function Dashboard({ demo = false, demoRole = "leader" }) {
                 ) : null}
 
                 <nav className="workspace-nav">
-                    {[["dashboard","home","工作室總覽"],["tasks","tasks","所有任務"],["calendar","calendar","行事曆"],["gantt","gantt","專題甘特圖"],["files","files","檔案協作規範"],["leaderboard","award","團隊排行榜"]].map(([page,icon,label]) => <button key={page} aria-current={activePage===page?"page":undefined} onClick={()=>navigate(page)}><Icon name={icon}/><span>{label}</span>{page==="tasks"?<small>{tasks.length}</small>:null}</button>)}
+                    {[["dashboard","home","工作室總覽"],["tasks","tasks","所有任務"],["calendar","calendar","行事曆"],["gantt","gantt","專題甘特圖"],["drive","folder","雲端檔案目錄"],["files","files","檔案協作規範"],["leaderboard","award","團隊排行榜"]].map(([page,icon,label]) => <button key={page} aria-current={activePage===page?"page":undefined} onClick={()=>navigate(page)}><Icon name={icon}/><span>{label}</span>{page==="tasks"?<small>{tasks.length}</small>:null}</button>)}
                 </nav>
 
                 <div className="sidebar-secondary">
@@ -1736,7 +1737,7 @@ export default function Dashboard({ demo = false, demoRole = "leader" }) {
             {/* 主內容 */}
             <main id="workspace-main" className="workspace-main" inert={shouldShowLogin}>
                 {demo ? <div className="demo-banner"><span>示範工作室 · 資料僅供體驗，重新整理後還原。</span><a href={window.location.pathname}>返回登入 <Icon name="arrow" size={14}/></a></div> : null}
-                <div className="page-heading"><div><h1>{({dashboard:"工作室總覽",tasks:"所有任務",calendar:"行事曆",gantt:"專題甘特圖",files:"檔案協作規範",leaderboard:"團隊排行榜"})[activePage]}</h1><p>{({dashboard:"查看專題進度、截止事項與成員分工。",tasks:"搜尋、篩選與管理小組任務。",calendar:"按日期查看任務的開始與截止時間。",gantt:"查看任務時程、切換時間尺度與匯出提報圖表。",files:"查看雲端上傳規則、命名範例與更新通知範本。",leaderboard:"查看成員完成數、積分與逾期紀錄。"})[activePage]}</p></div>{canCreateTasks?<button className="primary-button" onClick={()=>setShowComposer(!showComposer)} aria-expanded={showComposer}><Icon name="plus" size={18}/>新增任務</button>:null}</div>
+                <div className="page-heading"><div><h1>{({dashboard:"工作室總覽",tasks:"所有任務",calendar:"行事曆",gantt:"專題甘特圖",drive:"雲端檔案目錄",files:"檔案協作規範",leaderboard:"團隊排行榜"})[activePage]}</h1><p>{({dashboard:"查看專題進度、截止事項與成員分工。",tasks:"搜尋、篩選與管理小組任務。",calendar:"按日期查看任務的開始與截止時間。",gantt:"查看任務時程、切換時間尺度與匯出提報圖表。",drive:"瀏覽專題雲端資料夾、查找檔案並開啟同名截圖。",files:"查看雲端上傳規則、命名範例與更新通知範本。",leaderboard:"查看成員完成數、積分與逾期紀錄。"})[activePage]}</p></div>{canCreateTasks?<button className="primary-button" onClick={()=>setShowComposer(!showComposer)} aria-expanded={showComposer}><Icon name="plus" size={18}/>新增任務</button>:null}</div>
                 {actionMessage ? <div role="status" className="feedback success">{actionMessage}<button aria-label="關閉提示" onClick={()=>setActionMessage("")}><Icon name="close" size={16}/></button></div> : null}
                 {actionError ? <div role="alert" className="feedback error">{actionError}<button aria-label="關閉錯誤" onClick={()=>setActionError("")}><Icon name="close" size={16}/></button></div> : null}
                 {showComposer && canCreateTasks ? <>                <section className="task-composer" aria-label="新增任務"><div className="section-title"><h2>新增任務</h2><button onClick={()=>setShowComposer(false)} aria-label="關閉新增任務"><Icon name="close"/></button></div><p>填寫標題、負責人與任務類型。日期可留空。</p>
@@ -1828,7 +1829,7 @@ export default function Dashboard({ demo = false, demoRole = "leader" }) {
                     />
                 </section></> : null}
                 {activePage === "tasks" || activePage === "calendar" ? <div className="task-tools"><label className="search-field"><Icon name="search" size={18}/><input aria-label="搜尋任務" placeholder="搜尋任務、內容或組員…" value={searchQuery} onChange={event=>setSearchQuery(event.target.value)}/></label><select aria-label="任務排序" value={sortOrder} onChange={event=>setSortOrder(event.target.value)}><option value="deadline">截止時間優先</option><option value="importance">重要度優先</option><option value="newest">最近新增</option></select><button className="secondary-button" onClick={()=>{setTaskFilters({assignee:currentUser?.name ?? "all",taskType:"all",status:"all",deadlineTone:"all"});setSearchQuery("")}}>我的任務</button><button className="secondary-button" onClick={()=>{setSearchQuery("");setTaskFilters({assignee:"all",taskType:"all",status:"all",deadlineTone:"all"})}}>清除篩選</button><button className="secondary-button" disabled={!filteredTasks.length} onClick={exportTasks}><Icon name="download" size={16}/>匯出 CSV</button></div> : null}
-                {activePage === "files" ? <FileGuidelines/> : tasksError ? (
+                {activePage === "drive" ? <DriveDirectory key={`${currentUser?.uid}:${currentUser?.groupId}`} demo={demo} user={currentUser}/> : activePage === "files" ? <FileGuidelines/> : tasksError ? (
                     <div className="bg-white p-4 rounded-xl shadow">
                         <h2 className="font-bold mb-2">資料讀取失敗</h2>
                         <p className="text-sm text-red-600">

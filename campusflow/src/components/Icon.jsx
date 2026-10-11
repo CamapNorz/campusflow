@@ -1,4 +1,6 @@
 const paths = {
+  folder: 'M3 6h7l2 2h9v12H3z M3 6V4h7l2 2',
+  refresh: 'M20 7v5h-5 M4 17v-5h5 M5 8a8 8 0 0 1 13-3l2 2 M19 16a8 8 0 0 1-13 3l-2-2',
   files: 'M14 2H6v20h14V8z M14 2v6h6 M9 12h8 M9 16h8',
   copy: 'M9 9h12v12H9z M15 9V3H3v12h6',
   home: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',

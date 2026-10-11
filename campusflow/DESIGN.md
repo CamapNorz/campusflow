@@ -111,7 +111,7 @@ components:
 
 The user confirmed this direction and authorized direct implementation. A steady navy navigation rail frames a light, practical workspace. Traditional Chinese copy makes the next action clear; restrained blue accents and readable progress information support everyday project coordination.
 
-Key characteristics: quiet surfaces, clear task hierarchy, compact desktop information, and more generous mobile text. The built system is defined in `src/workspace.css`, `src/gantt.css`, `src/components/Overview.jsx`, `src/components/Icon.jsx`, `src/components/GanttChart.jsx`, `src/lib/gantt.js`, and `src/pages/Dashboard.jsx`.
+Key characteristics: quiet surfaces, clear task hierarchy, compact desktop information, and more generous mobile text. The built system is defined in `src/workspace.css`, `src/gantt.css`, `src/components/Overview.jsx`, `src/components/Icon.jsx`, `src/components/GanttChart.jsx`, `src/lib/gantt.js`, and `src/pages/Dashboard.jsx`. The Drive directory extension is scoped to `src/components/DriveDirectory.jsx`, `src/drive-directory.css`, and `src/lib/drive.js`.
 
 Use functional headings such as 專題進度, 近期截止任務, and 成員任務統計. The user requested removal of slogans; keep copy descriptive and action-specific.
 
@@ -141,6 +141,8 @@ Page headings use the headline token; panel headings use title. Body copy is gen
 
 **The File Guidelines Reading Rule.** The `file-guidelines-*` typography roles apply only to the file-collaboration guidance surface; they do not replace the incumbent title/body/label roles. Section headings use the scoped heading role, paragraphs and rule descriptions use the scoped body role, and field labels and desktop textareas use the scoped field role. Rule titles retain their scoped weight and size on desktop and mobile. At the surface's narrow breakpoint, paragraphs and descriptions use the mobile body role and textareas use the mobile textarea role. Filename examples use the scoped monospace role so extensions and version suffixes stay distinguishable. Desktop textareas use a 1.8 line-height; field labels use weight 600. Descriptions are limited to 70ch and long text wraps rather than clipping.
 
+**The Directory Reading Rule.** Drive paragraphs reuse the existing file-guidelines body measurements (14px, 1.85 line-height, 70ch maximum), and narrow-screen paragraphs reuse its mobile body measurements (15px, 1.85 line-height). These are compatible scoped roles, not changes to the global body default. Directory headings are 18px; breadcrumbs and file names are 14px, table headers and result status are 13px. Table cells use a 1.7 line-height, updated times use tabular numerals, and long file names wrap. Mobile search uses the existing readable input treatment (16px); selects retain the inherited workspace font and native controls.
+
 ## Layout
 
 Desktop uses a fixed 246px sidebar and 76px header. The main area has a matching left offset, 112px top padding, 36px horizontal padding, and a 1850px maximum width. Overview panels use a 1.65:1 grid with a 26px gap; the four-item metrics strip is flat and divided rather than four floating cards.
@@ -153,6 +155,8 @@ Desktop uses a fixed 246px sidebar and 76px header. The main area has a matching
 Calendar retains an internal horizontal overflow surface and a 480px minimum grid below 900px. The new Gantt uses a scrollable SVG report, at least 1040px wide, with frozen label columns 450px wide on desktop. At 600px and below, the frozen overlay clips to 225px so the task title stays visible without covering the timeline; underlying date columns and exported report retain their full geometry. Do not force these data views to shrink until labels become unreadable.
 
 File guidelines use a reading-first desktop grid: rules take 1.35fr and reference examples plus the notice template take 1fr, with the existing section gap. At 1100px and below, the rules sit above two reference columns. At 650px and below, the references become one column and rules-panel padding reduces from 24px to 18px. These surface breakpoints supplement the existing workspace navigation and content breakpoints.
+
+**The Contained Directory Rule.** The Drive table retains a 720px minimum width inside its own horizontal scroll container; the workspace itself must still fit the viewport. The first column receives 38% of the table width. Connection actions, breadcrumbs, controls and result status wrap. At 650px and below, search takes a full row, the two readable selects share the next row, and connection actions use the full available width. Keep the remaining table columns accessible by horizontal scrolling instead of compressing file names, timestamps and preview links.
 
 ## Elevation & Depth
 
@@ -184,11 +188,22 @@ This surface inherits Project Studio's navy/light palette, flat white rules pane
 
 **The Temporary Notice Rule.** The notice is held only in component memory and resets to the blank template when the page is exited or reloaded. It is not an autosaved draft or a backend operation. Clipboard actions report their result in a polite status region and disable while copying; failure exposes selectable rule text or directs the reader to select the existing notice manually. Keep the scope note that cloud permissions and versions are managed by the original storage service. This page neither uploads files nor sends group messages.
 
+### Drive directory
+
+The directory inherits the navy/light workspace, blue text actions, existing primary/secondary buttons and native fields. Its flat white table has a fine border, the existing board corner radius, and the existing pale report-month fill for column headings. Outline folder/file icons accompany names without introducing a new icon family. A semantic breadcrumb labels the current folder and exposes ancestor navigation; folder names open child folders. Search and type filters operate on already loaded files in the current folder, with folders first and either natural name order or most recently updated order. They are not a recursive Drive search.
+
+Blender rows link to loaded PNG/JPEG images with the same complete version-bearing filename stem, case-insensitively. For example, `Office_Desk_v003.blend` matches `Office_Desk_v003.png`, not `Office_Desk_v002.png`. The preview is a labeled external Drive link rather than an inline image or copied file. If additional pages remain, a missing match is described only as missing among loaded items. Retain loading status, displayed/loaded counts, read time, empty-folder and empty-filter explanations, incomplete-result guidance, error alerts, load-more pagination and manual refresh; disable refresh and load-more during loading.
+
+**The Directory Session Rule.** Drive OAuth access tokens and directory metadata stay in component memory only. The account/group-keyed component remount isolates sessions when either identity changes; leaving the directory, reload or local disconnect clears its connection state. Disconnect does not revoke the Google OAuth grant. The feature requests metadata read-only access, then queries the configured project folder and entered children; the grant itself is broader than that folder. File and image links open Google Drive. This directory does not copy, download, upload or delete Drive content.
+
+The demo uses clearly labeled fictional metadata and makes no Drive network requests or OAuth connections. The desktop and two mobile reference screenshots establish layout and contained table scrolling, not real account authorization. Real end-user OAuth consent remains untested; restricted-scope Google console configuration and verification may be needed. Do not claim production consent readiness or broader integration validation from the demo or local checks.
+
 ## Do's and Don'ts
 
 - **Do** keep Traditional Chinese copy, keyboard focus, written status labels, empty/error/loading states, and existing role-dependent functions.
 - **Do** check both 900px navigation behavior and 600px content reflow when adding screens.
 - **Do** preserve internal timeline/calendar scrolling, long-text wrapping, and readable mobile fields.
+- **Do** keep Drive filters and same-version image matching explicitly limited to loaded metadata, with the table scroll contained on mobile.
 - **Do** keep precise time geometry and complete report labels when changing the Gantt; tick density must not alter task duration.
 - **Don't** reintroduce slogans or motivational filler in functional headings.
 - **Don't** turn every metric into an elevated card or add decorative gradients and scale effects to this flat workspace.

@@ -2,6 +2,18 @@
 
 整理日期：2026-10-11。此文件是交接入口；實作以原始碼及目前 Git 狀態為準。
 
+## 2026-10-11 接續：雲端檔案目錄
+
+- 使用者要求從既有雲端讀取檔案並顯示目錄。新增側欄「雲端檔案目錄」與 `?view=drive`，沿用先前正式站台。
+- `src/components/DriveDirectory.jsx`、`src/drive-directory.css`、`src/lib/drive.js` 及 `drive.test.js`；Firebase 既有角色、資料模型、規則及 Discord 不改。
+- Drive 連接器確認專題根資料夾與九個既有編號子資料夾；沒有將實際檔案清單複製到公開靜態資料。預設根 ID 在程式設定中。
+- 已以既有專案管理授權啟用 Google Drive API。網頁透過目前 Firebase Google 帳號另行取得 metadata.readonly 授權；憑證與目錄只在元件記憶體，換帳號／組別、離頁或重整清空。失效授權清空資料，不改 Drive 共用權限。
+- 支援逐層瀏覽、麵包屑、已載入項目的搜尋／類型／排序、分頁、重新整理、同版本 Blender PNG／JPG 截圖連結。只讀中繼資料，內容在 Drive 開啟；沒有上傳、刪除或移動操作。
+- lint、17 項測試、build 及桌面／手機示範 QA 通過。另以瀏覽器模擬 Google 授權與 API 驗證分頁去重、scope、安全連結、401 清空、404 不列內容、403 限流、記憶體憑證及中斷連接。獨立介面 reviewer 判定 ship；detector 無發現。
+- **真實使用者的 Google OAuth 授權仍需本人完成驗收**；Restricted scope 可能需要 Google Auth Platform 的 Data Access／測試使用者／驗證設定。完整說明在 `campusflow/GOOGLE_DRIVE_SETUP.md`，不得把模擬測試宣稱為真實 Drive 登入驗收。
+- 本機 QA、截圖及結果位於工作區 `output/campusflow-release/drive-*-v01.*`，不納入 Git。Hosting 產生的 `.firebase/` 已加入忽略並保留。
+- 本次目錄新版已正式部署到 Firebase Hosting（release complete）。公開 HTML／JS／CSS SHA-256 與本機建置一致；全新瀏覽器的正式登入入口、線上示範目錄及手機版通過。未授權與示範模式都沒有 Drive API 請求。公開入口為 `https://campusflow-3edb8.web.app/?view=drive`；不要把示範網址當正式資料入口。
+
 ## 2026-10-11 正式發布
 
 - 使用者明確要求正式上線並取得可分享給組員的連結。正式入口：https://campusflow-3edb8.web.app（不加 `demo=1`）。

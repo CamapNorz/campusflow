@@ -1,34 +1,100 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-11T18:57:36.0070475+08:00",
+  "generatedAt": "2026-10-11T19:50:10.9789249+08:00",
   "title": "Design System: CampusFlow",
   "extensions": {
     "typographyMeta": {
-      "report": { "displayName": "Offline report text", "purpose": "Microsoft JhengHei with Arial/sans-serif fallback only inside the self-contained Gantt SVG/PNG; application UI retains DM Sans/Noto Sans TC." },
-      "file-guidelines-heading": { "displayName": "File guidance heading", "purpose": "Section headings only within file collaboration guidelines." },
-      "file-guidelines-body": { "displayName": "File guidance reading text", "purpose": "Desktop paragraphs and rule descriptions, with descriptions limited to 70ch." },
-      "file-guidelines-field": { "displayName": "File guidance field", "purpose": "Desktop textarea and field label text; labels use weight 600 and textareas use 1.8 line-height." },
-      "file-guidelines-rule-title": { "displayName": "File guidance rule title", "purpose": "Definition-list titles retain this role on desktop and mobile." },
-      "file-guidelines-mobile-body": { "displayName": "File guidance mobile reading text", "purpose": "Paragraphs and descriptions at the surface's narrow breakpoint." },
-      "file-guidelines-mobile-textarea": { "displayName": "File guidance mobile textarea", "purpose": "Readable notice and manual-copy textareas at the surface's narrow breakpoint." },
-      "file-guidelines-filename": { "displayName": "Filename example", "purpose": "Scoped monospace examples distinguish extensions and version suffixes; long filenames wrap." }
+      "report": {
+        "displayName": "Offline report text",
+        "purpose": "Microsoft JhengHei with Arial/sans-serif fallback only inside the self-contained Gantt SVG/PNG; application UI retains DM Sans/Noto Sans TC."
+      },
+      "file-guidelines-heading": {
+        "displayName": "File guidance heading",
+        "purpose": "Section headings only within file collaboration guidelines."
+      },
+      "file-guidelines-body": {
+        "displayName": "File guidance reading text",
+        "purpose": "Desktop paragraphs and rule descriptions limited to 70ch; Drive paragraphs reuse these scoped reading measurements without changing global typography."
+      },
+      "file-guidelines-field": {
+        "displayName": "File guidance field",
+        "purpose": "Desktop textarea and field label text; labels use weight 600 and textareas use 1.8 line-height."
+      },
+      "file-guidelines-rule-title": {
+        "displayName": "File guidance rule title",
+        "purpose": "Definition-list titles retain this role on desktop and mobile."
+      },
+      "file-guidelines-mobile-body": {
+        "displayName": "File guidance mobile reading text",
+        "purpose": "Paragraphs and descriptions at the narrow file-guidance breakpoint; compatible measurements also serve narrow-screen Drive connection/privacy copy."
+      },
+      "file-guidelines-mobile-textarea": {
+        "displayName": "File guidance mobile textarea",
+        "purpose": "Readable notice and manual-copy textareas at the surface's narrow breakpoint."
+      },
+      "file-guidelines-filename": {
+        "displayName": "Filename example",
+        "purpose": "Scoped monospace examples distinguish extensions and version suffixes; long filenames wrap."
+      }
     },
     "shadows": [
-      { "name": "edit-dialog", "value": "0 20px 60px #14274630", "purpose": "Separate the native task editor from the dimmed workspace." },
-      { "name": "mobile-navigation", "value": "10px 0 30px #15243a24", "purpose": "Separate the open mobile sidebar from the working surface." }
+      {
+        "name": "edit-dialog",
+        "value": "0 20px 60px #14274630",
+        "purpose": "Separate the native task editor from the dimmed workspace."
+      },
+      {
+        "name": "mobile-navigation",
+        "value": "10px 0 30px #15243a24",
+        "purpose": "Separate the open mobile sidebar from the working surface."
+      }
     ],
     "motion": [
-      { "name": "button-state", "value": "background-color .18s, color .18s, border-color .18s", "purpose": "Restrained interaction feedback." },
-      { "name": "navigation", "value": "transform .2s ease", "purpose": "Mobile navigation reveal." },
-      { "name": "composer", "value": "composer-in .25s cubic-bezier(.16,1,.3,1)", "purpose": "Reveal the inline task form; disable under prefers-reduced-motion." }
+      {
+        "name": "button-state",
+        "value": "background-color .18s, color .18s, border-color .18s",
+        "purpose": "Restrained interaction feedback."
+      },
+      {
+        "name": "navigation",
+        "value": "transform .2s ease",
+        "purpose": "Mobile navigation reveal."
+      },
+      {
+        "name": "composer",
+        "value": "composer-in .25s cubic-bezier(.16,1,.3,1)",
+        "purpose": "Reveal the inline task form; disable under prefers-reduced-motion."
+      }
     ],
     "breakpoints": [
-      { "name": "mobile", "value": "600px" },
-      { "name": "navigation-collapse", "value": "900px" },
-      { "name": "compact-desktop", "value": "1200px" },
-      { "name": "wide-desktop", "value": "1700px" },
-      { "name": "file-guidelines-stack", "value": "1100px" },
-      { "name": "file-guidelines-single-column", "value": "650px" }
+      {
+        "name": "mobile",
+        "value": "600px"
+      },
+      {
+        "name": "navigation-collapse",
+        "value": "900px"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "1200px"
+      },
+      {
+        "name": "wide-desktop",
+        "value": "1700px"
+      },
+      {
+        "name": "file-guidelines-stack",
+        "value": "1100px"
+      },
+      {
+        "name": "file-guidelines-single-column",
+        "value": "650px"
+      },
+      {
+        "name": "drive-directory-controls",
+        "value": "650px"
+      }
     ]
   },
   "components": [
@@ -37,20 +103,92 @@
       "kind": "button",
       "refersTo": "button-primary",
       "description": "Main task creation or confirmation action.",
-      "html": "<button class=\"primary\">新增任務</button>",
-      "css": ".primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--blue,#375ed3);color:white;border:0;border-radius:8px;padding:12px 18px;font:600 13px 'DM Sans','Noto Sans TC',sans-serif;cursor:pointer;transition:background-color .18s,color .18s,border-color .18s}.primary:hover{background:#284bb7}.primary:focus-visible{outline:3px solid #6e8cf1;outline-offset:3px}.primary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.primary{transition:none}}"
+      "html": "<button class=\"ds-primary\">新增任務</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--blue,#375ed3);color:white;border:0;border-radius:8px;padding:12px 18px;font:600 13px 'DM Sans','Noto Sans TC',sans-serif;cursor:pointer;transition:background-color .18s,color .18s,border-color .18s}.ds-primary:hover{background:#284bb7}.ds-primary:focus-visible{outline:3px solid #6e8cf1;outline-offset:3px}.ds-primary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-primary{transition:none}}"
+    },
+    {
+      "name": "Directory Breadcrumb",
+      "kind": "nav",
+      "description": "Wrapped folder ancestors with the current location written as text.",
+      "html": "<nav class=\"ds-drive-path\" aria-label=\"Folder path\"><button>Project</button><span aria-hidden=\"true\"> / </span><span aria-current=\"location\">04_Props</span></nav>",
+      "css": ".ds-drive-path{display:flex;flex-wrap:wrap;gap:6px;padding:18px 0;font:14px \"DM Sans\",\"Noto Sans TC\",sans-serif;overflow-wrap:anywhere;color:var(--ink,#26344b)}.ds-drive-path button{background:none;border:0;color:var(--blue,#375ed3);font:inherit;font-weight:500;cursor:pointer}.ds-drive-path button:hover{text-decoration:underline}.ds-drive-path button:focus-visible{outline:3px solid #6e8cf1;outline-offset:3px}"
+    },
+    {
+      "name": "Directory Controls",
+      "kind": "input",
+      "description": "Loaded-file search and readable native type/order selects; search takes a full row on mobile.",
+      "html": "<div class=\"ds-drive-controls\"><label class=\"ds-drive-search\"><input aria-label=\"Search loaded files\" placeholder=\"Search loaded files...\"></label><select aria-label=\"File type\"><option>All types</option><option>Blender</option></select><select aria-label=\"File order\"><option>Name</option><option>Recently updated</option></select></div>",
+      "css": ".ds-drive-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-family:\"DM Sans\",\"Noto Sans TC\",sans-serif}.ds-drive-search{display:flex;align-items:center;flex:1 1 260px;min-width:0;border:1px solid #cdd5df;border-radius:8px;background:white;padding:0 12px}.ds-drive-search input{border:0;min-width:0;width:100%;min-height:40px;padding:9px 12px 9px 0;background:white;color:var(--ink,#26344b);font:12px \"DM Sans\",\"Noto Sans TC\",sans-serif;outline:none}.ds-drive-search:focus-within{outline:3px solid #bacafa;outline-offset:1px}.ds-drive-controls select{min-height:40px;max-width:100%;padding:9px 12px;border:1px solid #cdd5df;border-radius:8px;background:white;color:var(--ink,#26344b);font:inherit;cursor:pointer}.ds-drive-controls select:hover{border-color:var(--blue,#375ed3)}.ds-drive-controls select:focus-visible{outline:3px solid #6e8cf1;outline-offset:3px}@media(max-width:650px){.ds-drive-search{flex:1 1 100%}.ds-drive-search input{font-size:16px}.ds-drive-controls select{flex:1 1 calc(50% - 5px);min-width:0}}"
+    },
+    {
+      "name": "Directory Table",
+      "kind": "custom",
+      "description": "Flat metadata table with a contained 720px minimum width and same-version image link.",
+      "html": "<div class=\"ds-drive-table-wrap\"><table class=\"ds-drive-table\"><caption class=\"ds-drive-caption\">Loaded folder files</caption><thead><tr><th scope=\"col\">Name</th><th scope=\"col\">Type</th><th scope=\"col\">Updated</th><th scope=\"col\">Size</th><th scope=\"col\">Same-name image</th></tr></thead><tbody><tr><td><a href=\"https://drive.google.com/\" target=\"_blank\" rel=\"noopener noreferrer\">Office_Desk_v003.blend</a></td><td>Blender</td><td>2026/10/11 10:00</td><td>7.9 MB</td><td><a href=\"https://drive.google.com/\" target=\"_blank\" rel=\"noopener noreferrer\">View PNG</a></td></tr></tbody></table></div>",
+      "css": ".ds-drive-table-wrap{max-width:100%;overflow-x:auto;border:1px solid var(--line,#e4e8ee);border-radius:12px;background:white}.ds-drive-table{width:100%;min-width:720px;border-collapse:collapse;text-align:left;color:var(--ink,#26344b);font:14px \"DM Sans\",\"Noto Sans TC\",sans-serif}.ds-drive-table th{padding:14px 16px;background:#eef2f8;font-size:13px;font-weight:600;white-space:nowrap}.ds-drive-table th:first-child{width:38%}.ds-drive-table td{padding:16px;border-top:1px solid var(--line,#e4e8ee);vertical-align:top;line-height:1.7;overflow-wrap:anywhere}.ds-drive-table td:nth-child(3){font-variant-numeric:tabular-nums;white-space:nowrap}.ds-drive-table a{color:var(--blue,#375ed3)}.ds-drive-table a:hover{text-decoration:underline}.ds-drive-table a:focus-visible{outline:3px solid #6e8cf1;outline-offset:3px}.ds-drive-caption{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}"
+    },
+    {
+      "name": "Directory Result Status",
+      "kind": "custom",
+      "description": "Written displayed/loaded counts and read time wrap to remain readable.",
+      "html": "<div class=\"ds-drive-status\" role=\"status\"><span>Showing 3, loaded 3</span><span>Read: 2026/10/11 10:00</span></div>",
+      "css": ".ds-drive-status{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin:18px 0 12px;color:var(--muted,#657084);font:13px \"DM Sans\",\"Noto Sans TC\",sans-serif}"
     }
   ],
   "narrative": {
     "northStar": "Project Studio / 專題工作室",
-    "overview": "Navy navigation frames a light, practical graduation-project workspace. Traditional Chinese copy and restrained blue actions make the next step clear.",
-    "keyCharacteristics": ["Flat tonal surfaces", "Clear task hierarchy", "Compact desktop information", "Readable mobile forms", "Precise time geometry and complete report labels"],
-    "rules": [
-      { "name": "The Action Color Rule", "body": "Use blue for interaction and purple for completion; do not introduce green as a new brand accent.", "section": "colors" },
-      { "name": "The File Guidelines Reading Rule", "body": "The `file-guidelines-*` typography roles apply only to the file-collaboration guidance surface; they do not replace the incumbent title/body/label roles. Section headings use the scoped heading role, paragraphs and rule descriptions use the scoped body role, and field labels and desktop textareas use the scoped field role. Rule titles retain their scoped weight and size on desktop and mobile. At the surface's narrow breakpoint, paragraphs and descriptions use the mobile body role and textareas use the mobile textarea role. Filename examples use the scoped monospace role so extensions and version suffixes stay distinguishable. Desktop textareas use a 1.8 line-height; field labels use weight 600. Descriptions are limited to 70ch and long text wraps rather than clipping.", "section": "typography" },
-      { "name": "The Temporary Notice Rule", "body": "The notice is held only in component memory and resets to the blank template when the page is exited or reloaded. It is not an autosaved draft or a backend operation. Clipboard actions report their result in a polite status region and disable while copying; failure exposes selectable rule text or directs the reader to select the existing notice manually. Keep the scope note that cloud permissions and versions are managed by the original storage service. This page neither uploads files nor sends group messages.", "section": "components" }
+    "overview": "The user confirmed this direction and authorized direct implementation. A steady navy navigation rail frames a light, practical workspace. Traditional Chinese copy makes the next action clear; restrained blue accents and readable progress information support everyday project coordination.",
+    "keyCharacteristics": [
+      "Flat tonal surfaces",
+      "Clear task hierarchy",
+      "Compact desktop information",
+      "Readable mobile forms",
+      "Precise time geometry and complete report labels"
     ],
-    "dos": ["Preserve keyboard focus and written status labels.", "Check navigation at 900px and content reflow at 600px.", "Keep Gantt frozen labels at 450px desktop and 225px mobile; preserve full report date columns and wrapped task titles.", "Use actual timestamps for bars, diamonds for equal endpoints and dagger marks for fallback dates.", "Keep full filtered-range PNG/SVG exports, adaptive day/week/month/fit scales and native presentation-dialog focus return."],
-    "donts": ["Do not remove demo labeling.", "Do not add decorative hover scaling or elevated metric cards.", "Do not reintroduce slogans in functional headings.", "Do not apply the offline report font stack to the surrounding application UI."]
+    "rules": [
+      {
+        "name": "The Action Color Rule",
+        "body": "Use blue to clarify interaction and purple for completion; avoid green in all new design unless the user explicitly allows it. This requirement takes precedence over older wording in `.impeccable/design.json`.",
+        "section": "colors"
+      },
+      {
+        "name": "The File Guidelines Reading Rule",
+        "body": "The `file-guidelines-*` typography roles apply only to the file-collaboration guidance surface; they do not replace the incumbent title/body/label roles. Section headings use the scoped heading role, paragraphs and rule descriptions use the scoped body role, and field labels and desktop textareas use the scoped field role. Rule titles retain their scoped weight and size on desktop and mobile. At the surface's narrow breakpoint, paragraphs and descriptions use the mobile body role and textareas use the mobile textarea role. Filename examples use the scoped monospace role so extensions and version suffixes stay distinguishable. Desktop textareas use a 1.8 line-height; field labels use weight 600. Descriptions are limited to 70ch and long text wraps rather than clipping.",
+        "section": "typography"
+      },
+      {
+        "name": "The Directory Reading Rule",
+        "body": "Drive paragraphs reuse the existing file-guidelines body measurements (14px, 1.85 line-height, 70ch maximum), and narrow-screen paragraphs reuse its mobile body measurements (15px, 1.85 line-height). These are compatible scoped roles, not changes to the global body default. Directory headings are 18px; breadcrumbs and file names are 14px, table headers and result status are 13px. Table cells use a 1.7 line-height, updated times use tabular numerals, and long file names wrap. Mobile search uses the existing readable input treatment (16px); selects retain the inherited workspace font and native controls.",
+        "section": "typography"
+      },
+      {
+        "name": "The Contained Directory Rule",
+        "body": "The Drive table retains a 720px minimum width inside its own horizontal scroll container; the workspace itself must still fit the viewport. The first column receives 38% of the table width. Connection actions, breadcrumbs, controls and result status wrap. At 650px and below, search takes a full row, the two readable selects share the next row, and connection actions use the full available width. Keep the remaining table columns accessible by horizontal scrolling instead of compressing file names, timestamps and preview links.",
+        "section": "layout"
+      },
+      {
+        "name": "The Temporary Notice Rule",
+        "body": "The notice is held only in component memory and resets to the blank template when the page is exited or reloaded. It is not an autosaved draft or a backend operation. Clipboard actions report their result in a polite status region and disable while copying; failure exposes selectable rule text or directs the reader to select the existing notice manually. Keep the scope note that cloud permissions and versions are managed by the original storage service. This page neither uploads files nor sends group messages.",
+        "section": "components"
+      },
+      {
+        "name": "The Directory Session Rule",
+        "body": "Drive OAuth access tokens and directory metadata stay in component memory only. The account/group-keyed component remount isolates sessions when either identity changes; leaving the directory, reload or local disconnect clears its connection state. Disconnect does not revoke the Google OAuth grant. The feature requests metadata read-only access, then queries the configured project folder and entered children; the grant itself is broader than that folder. File and image links open Google Drive. This directory does not copy, download, upload or delete Drive content.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do keep Traditional Chinese copy, keyboard focus, written status labels, empty/error/loading states, and existing role-dependent functions.",
+      "Do check both 900px navigation behavior and 600px content reflow when adding screens.",
+      "Do preserve internal timeline/calendar scrolling, long-text wrapping, and readable mobile fields.",
+      "Do keep Drive filters and same-version image matching explicitly limited to loaded metadata, with the table scroll contained on mobile.",
+      "Do keep precise time geometry and complete report labels when changing the Gantt; tick density must not alter task duration."
+    ],
+    "donts": [
+      "Don't reintroduce slogans or motivational filler in functional headings.",
+      "Don't turn every metric into an elevated card or add decorative gradients and scale effects to this flat workspace.",
+      "Don't hide demo labeling or claim live integration validation from sample data.",
+      "Don't treat visual documentation as authorization to alter data schemas, permissions, or saved task colors."
+    ]
   }
 }
