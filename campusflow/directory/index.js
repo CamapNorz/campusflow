@@ -13,8 +13,10 @@ export async function verifyIdentity(token, project, keySet = keys) {
 }
 
 async function jsonRequest(url, init = {}, fetcher = fetch) {
-  const response = await fetcher(url, { ...init, signal: AbortSignal.timeout(12000), redirect: 'error' })
-  if (!response.ok) fail([401,403,404].includes(response.status) ? 403 : 503)
+  // Workers supports manual/follow, but rejects Node's redirect:error before I/O.
+  // Manual mode plus the status check prevents forwarding bearer tokens on redirects.
+  const response = await fetcher(url, { ...init, signal: AbortSignal.timeout(12000), redirect: 'manual' })
+  if (!response.ok) throw Object.assign(new Error('Upstream request failed'), {status:[401,403,404].includes(response.status) ? 403 : 503,upstreamStatus:response.status})
   const reader = response.body.getReader()
   const chunks = []; let size = 0
   for (;;) {
@@ -76,6 +78,7 @@ export function createHandler(deps = {}) {
     if (origin && !allowed) return new Response('{"error":"access_denied"}', {status:403,headers})
     if (allowed) Object.assign(headers, {'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization','Access-Control-Max-Age':'600'})
     const reply = (status, body) => new Response(JSON.stringify(body), {status,headers})
+    let stage = 'request'
     try {
       const url = new URL(request.url)
       if (url.pathname !== '/directory') return reply(404,{error:'not_found'})
@@ -90,10 +93,15 @@ export function createHandler(deps = {}) {
       let uid
       try { uid = await (deps.verifyIdentity || verifyIdentity)(match[1],env.FIREBASE_PROJECT) } catch { fail(401) }
       if (!(await env.DIRECTORY_LIMITER.limit({key:uid})).success) fail(429)
+      stage = 'membership'
       await (deps.assertMember || assertMember)(uid,match[1],env)
+      stage = 'service_auth'
       const token = await (deps.serviceToken || serviceToken)(env.DRIVE_SERVICE_ACCOUNT)
+      stage = 'drive_read'
       return reply(200,await (deps.readDirectory || readDirectory)(folderId,pageToken,env,token))
-    } catch (error) { return reply(error.status || 503,{error:error.status === 401 ? 'login_required' : error.status === 403 ? 'access_denied' : 'directory_unavailable'}) }
+    } catch (error) {
+      return reply(error.status || 503,{error:error.status === 401 ? 'login_required' : error.status === 403 ? 'access_denied' : error.status === 429 ? 'rate_limited' : `${stage}_unavailable`})
+    }
   }
 }
 export default {fetch:createHandler()}

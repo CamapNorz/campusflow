@@ -36,6 +36,11 @@ test('Drive metadata errors distinguish inaccessible folders, expiration and dis
   assert.match(driveErrorMessage({ status: 403, reason: 'userRateLimitExceeded' }), /稍後/)
   await assert.rejects(readProjectDirectory('token', PROJECT_FOLDER_ID), /endpoint unavailable/)
 })
+test('Directory distinguishes backend stage failures and non-JSON error responses from user network problems',async()=>{
+ const options={endpoint:'https://directory.example',fetcher:async()=>({ok:false,status:503,json:async()=>({error:'membership_unavailable'})})}
+ await assert.rejects(readProjectDirectory('token',PROJECT_FOLDER_ID,options),error=>{assert.equal(error.reason,'membership_unavailable');assert.match(driveErrorMessage(error),/成員資格/);return true})
+ await assert.rejects(readProjectDirectory('token',PROJECT_FOLDER_ID,{...options,fetcher:async()=>({ok:false,status:502,json:async()=>{throw new SyntaxError('private gateway HTML')}})}),error=>{assert.equal(error.reason,'invalid_response');assert.equal(error.message.includes('private'),false);assert.match(driveErrorMessage(error),/回應異常/);return true})
+})
 
 test('Drive links reject injected schemes and offsite URLs while keeping native Google Docs links', () => {
   const file = { id: 'valid-file-id-1234', webViewLink: 'javascript:alert(1)' }

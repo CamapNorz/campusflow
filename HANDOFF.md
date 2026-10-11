@@ -2,6 +2,16 @@
 
 整理日期：2026-10-11。此文件是交接入口；實作以原始碼及目前 Git 狀態為準。
 
+## 2026-10-11 修正：正式目錄連線失敗
+
+- 使用者回報登入後讀取失敗，已在使用者現有 Chrome 登入 session 重現。根因是 jsonRequest 的 redirect:error 在 Workers/workerd 不支援，於會員查詢發送前拋 TypeError；Node 測試未反映此執行環境差異。
+- 改 redirect:manual 並拒絕所有非成功 HTTP 回應，維持不跟隨轉址／不轉送 Firebase 或服務帳號憑證。成員資格、原 rules、根目錄範圍與限流沒有放寬。
+- 前端區分成員查詢、服務授權、Drive 與非 JSON gateway 回應，後端只回傳固定安全錯誤碼，不回傳私人 upstream 原文或記錄憑證。
+- 後端與 Hosting 已部署。使用真實既有登入帳號確認根目錄 9 項、子資料夾 6 項及麵包屑返回，這次已驗收該帳號的正式目錄流程；其他帳號仍未逐一測試。
+- lint、23 項單元測試與 test:directory-runtime 通過（workerd 使用合成無效 token，確認 request 到上游驗證回應，不使用真實憑證）。正式網站資產雜湊／未登入頁與示範 QA 亦重新驗證。
+- 本機證據 output/campusflow-release/production-drive-authenticated-v04.png 含使用者專題畫面，僅保留本機，不提交 Git／公開部署。
+
+
 ## 2026-10-11 接續：取消個人 Drive OAuth，改後端唯讀目錄
 
 - 使用者指定空間 2LpXms9L1hDyM2AS37e6，授權专用服務帳號與 root-folder reader 共享，並明確同意將專用金鑰存 Cloudflare Worker secret。未公開資料夾，未授予專案 IAM 角色。

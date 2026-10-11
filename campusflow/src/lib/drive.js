@@ -5,11 +5,14 @@ const validId = value => typeof value === 'string' && /^[\w-]{10,160}$/.test(val
 async function driveRequest(token, url, { signal, fetcher = fetch } = {}) {
   if (!token) throw new Error('Drive authorization required')
   const response = await fetcher(url, { headers: { Authorization: `Bearer ${token}` }, signal, cache: 'no-store' })
-  const data = await response.json()
+  let data
+  try { data = await response.json() } catch {
+    throw Object.assign(new Error('Unexpected directory response'), {status:response.status || 503,reason:'invalid_response'})
+  }
   if (!response.ok) {
     const error = new Error('Drive request failed')
     error.status = response.status
-    error.reason = data.error?.details?.find(detail => detail.reason)?.reason || data.error?.errors?.[0]?.reason || ''
+    error.reason = typeof data.error === 'string' ? data.error : data.error?.details?.find(detail => detail.reason)?.reason || data.error?.errors?.[0]?.reason || ''
     throw error
   }
   return data
@@ -60,6 +63,10 @@ export function filterDriveFiles(files, search, kind, order) {
 }
 
 export function driveErrorMessage(error) {
+  if (error.reason === 'membership_unavailable') return '暫時無法確認專題成員資格，請稍後重新讀取。'
+  if (error.reason === 'service_auth_unavailable') return '雲端目錄服務的讀取帳號暫時無法連線，請聯絡專題負責人。'
+  if (error.reason === 'drive_read_unavailable') return 'Google Drive 暫時無法回傳目錄，請稍後重新整理。'
+  if (error.reason === 'invalid_response') return '目錄服務回應異常，請稍後重試；若持續發生，請將此訊息告知負責人。'
   if (error.status === 401) return '登入已過期，請重新登入 CampusFlow 後讀取目錄。'
   if (error.status === 404) return '找不到此資料夾或目錄服務尚未設定。請確認專題空間，並聯絡負責人檢查目錄服務。'
   if (error.reason === 'SERVICE_DISABLED' || error.reason === 'accessNotConfigured') return 'Drive API 尚未啟用，請聯絡專題負責人。'

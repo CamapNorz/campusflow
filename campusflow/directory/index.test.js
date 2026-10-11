@@ -20,11 +20,22 @@ test('Firebase identity rejects forged, expired, wrong-project and future authen
 })
 test('Membership requires current profile group and readable membership under caller credentials',async()=>{
   let calls=0
-  const fetcher=async(url,options)=>{calls++;assert.equal(options.headers.Authorization,'Bearer caller-token');return url.includes('/users/') ? json({fields:{groupId:{stringValue:env.GROUP_ID}}}) : json({fields:{name:{stringValue:'Member'}}})}
+  const fetcher=async(url,options)=>{calls++;assert.equal(options.redirect,'manual');assert.equal(options.headers.Authorization,'Bearer caller-token');return url.includes('/users/') ? json({fields:{groupId:{stringValue:env.GROUP_ID}}}) : json({fields:{name:{stringValue:'Member'}}})}
   await assertMember('member','caller-token',env,fetcher)
   assert.equal(calls,2)
   await assert.rejects(assertMember('member','caller-token',env,async()=>json({fields:{groupId:{stringValue:'other'}}})),{status:403})
   await assert.rejects(assertMember('member','caller-token',env,async(url)=>url.includes('/users/') ? json({fields:{groupId:{stringValue:env.GROUP_ID}}}) : new Response('',{status:404})),{status:403})
+})
+test('Authenticated upstream redirects fail closed without following the target or exposing response text',async()=>{
+ let calls=0
+ await assert.rejects(assertMember('member','caller-token',env,async(_url,options)=>{
+  calls++;assert.equal(options.redirect,'manual')
+  return new Response('private redirect details',{status:302,headers:{Location:'https://evil.example'}})
+ }),{status:503})
+ assert.equal(calls,1)
+ const handler=createHandler({verifyIdentity:async()=> 'member',assertMember:async()=>{throw Object.assign(new Error('private upstream'),{status:503})}})
+ const response=await handler(new Request('https://api.example/directory',{headers:{Authorization:'Bearer valid'}}),env)
+ assert.equal(response.status,503);assert.deepEqual(await response.json(),{error:'membership_unavailable'})
 })
 test('Folder ancestry enforces root, rejects shortcuts, trash, cycles and outside folders; pagination is metadata-only',async()=>{
   const folder=(id,parents)=>({id,name:'Folder',mimeType:'application/vnd.google-apps.folder',parents})
