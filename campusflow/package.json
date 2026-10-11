@@ -10,6 +10,7 @@
     "worker:deploy": "wrangler deploy",
     "worker:dev": "wrangler dev",
     "lint": "eslint .",
+    "test": "node --test src/lib/*.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

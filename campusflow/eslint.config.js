@@ -18,4 +18,8 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    files: ['worker/register-commands.js', '**/*.test.js'],
+    languageOptions: { globals: globals.node },
+  },
 ])

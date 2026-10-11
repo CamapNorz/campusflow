@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-18T00:00:00+08:00",
+  "title": "Design System: CampusFlow",
+  "extensions": {
+    "typographyMeta": {
+      "report": { "displayName": "Offline report text", "purpose": "Microsoft JhengHei with Arial/sans-serif fallback only inside the self-contained Gantt SVG/PNG; application UI retains DM Sans/Noto Sans TC." }
+    },
+    "shadows": [
+      { "name": "edit-dialog", "value": "0 20px 60px #14274630", "purpose": "Separate the native task editor from the dimmed workspace." },
+      { "name": "mobile-navigation", "value": "10px 0 30px #15243a24", "purpose": "Separate the open mobile sidebar from the working surface." }
+    ],
+    "motion": [
+      { "name": "button-state", "value": "background-color .18s, color .18s, border-color .18s", "purpose": "Restrained interaction feedback." },
+      { "name": "navigation", "value": "transform .2s ease", "purpose": "Mobile navigation reveal." },
+      { "name": "composer", "value": "composer-in .25s cubic-bezier(.16,1,.3,1)", "purpose": "Reveal the inline task form; disable under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "600px" },
+      { "name": "navigation-collapse", "value": "900px" },
+      { "name": "compact-desktop", "value": "1200px" },
+      { "name": "wide-desktop", "value": "1700px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main task creation or confirmation action.",
+      "html": "<button class=\"primary\">新增任務</button>",
+      "css": ".primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--blue,#375ed3);color:white;border:0;border-radius:8px;padding:12px 18px;font:600 13px 'DM Sans','Noto Sans TC',sans-serif;cursor:pointer;transition:background-color .18s,color .18s,border-color .18s}.primary:hover{background:#284bb7}.primary:focus-visible{outline:3px solid #6e8cf1;outline-offset:3px}.primary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.primary{transition:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Project Studio / 專題工作室",
+    "overview": "Navy navigation frames a light, practical graduation-project workspace. Traditional Chinese copy and restrained blue actions make the next step clear.",
+    "keyCharacteristics": ["Flat tonal surfaces", "Clear task hierarchy", "Compact desktop information", "Readable mobile forms", "Precise time geometry and complete report labels"],
+    "rules": [
+      { "name": "The Action Color Rule", "body": "Use blue for interaction and purple for completion; do not introduce green as a new brand accent.", "section": "colors" }
+    ],
+    "dos": ["Preserve keyboard focus and written status labels.", "Check navigation at 900px and content reflow at 600px.", "Keep Gantt frozen labels at 450px desktop and 225px mobile; preserve full report date columns and wrapped task titles.", "Use actual timestamps for bars, diamonds for equal endpoints and dagger marks for fallback dates.", "Keep full filtered-range PNG/SVG exports, adaptive day/week/month/fit scales and native presentation-dialog focus return."],
+    "donts": ["Do not remove demo labeling.", "Do not add decorative hover scaling or elevated metric cards.", "Do not reintroduce slogans in functional headings.", "Do not apply the offline report font stack to the surrounding application UI."]
+  }
+}

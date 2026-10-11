@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import "../firebase"
 import {
     addDoc,
@@ -22,6 +22,14 @@ import {
     signOut,
 } from "firebase/auth"
 
+import Icon from "../components/Icon"
+import Overview from "../components/Overview"
+import GanttChart from "../components/GanttChart"
+import { scheduledRows } from "../lib/gantt"
+import { createDemoTasks, createDemoUser } from "../lib/demo"
+import { matchesSearch, sortTasks, validateSchedule, tasksToCsv } from "../lib/tasks"
+import "../workspace.css"
+
 const BASE_MEMBER_OPTIONS = []
 const ALL_ASSIGNEE = "全員"
 const TASK_TYPE_OPTIONS = ["小作業", "期中作業", "期末作業", "畢業專題", "其他"]
@@ -40,8 +48,8 @@ const GANTT_COLOR_OPTIONS = [
     { label: "鳶", value: "bg-indigo-700" },
 ]
 
-export default function Dashboard() {
-    const [currentUser, setCurrentUser] = useState(null)
+export default function Dashboard({ demo = false, demoRole = "leader" }) {
+    const [currentUser, setCurrentUser] = useState(() => demo ? createDemoUser(demoRole) : null)
     const [loginName, setLoginName] = useState("")
     const [loginRole, setLoginRole] = useState("member")
     const [projectNameInput, setProjectNameInput] = useState("")
@@ -49,7 +57,7 @@ export default function Dashboard() {
     const [copiedGroupCode, setCopiedGroupCode] = useState(false)
     const [copiedLoginUrl, setCopiedLoginUrl] = useState(false)
     const [loginError, setLoginError] = useState("")
-    const [authReady, setAuthReady] = useState(false)
+    const [authReady, setAuthReady] = useState(demo)
     const [isEditingName, setIsEditingName] = useState(false)
     const [nameDraft, setNameDraft] = useState("")
     const [nameError, setNameError] = useState("")
@@ -74,16 +82,20 @@ export default function Dashboard() {
     const [editDeadlineInput, setEditDeadlineInput] = useState("")
     const [editFinishedInput, setEditFinishedInput] = useState("")
     const [editError, setEditError] = useState(null)
-    const [tasks, setTasks] = useState([])
+    const [tasks, setTasks] = useState(() => demo ? createDemoTasks() : [])
     const [tasksError, setTasksError] = useState(null)
-    const [activePage, setActivePage] = useState("dashboard") // dashboard | calendar
+    const [activePage, setActivePage] = useState(() => {
+        const view = new URLSearchParams(window.location.search).get("view")
+        return ["tasks", "calendar", "gantt", "leaderboard"].includes(view) ? view : "dashboard"
+    })
     const [calendarCursor, setCalendarCursor] = useState(() => new Date())
     const [selectedDateKey, setSelectedDateKey] = useState(null)
     const [expandedTaskIds, setExpandedTaskIds] = useState({})
     const [ganttOrder, setGanttOrder] = useState(() => {
         if (typeof window === "undefined") return []
         try {
-            return JSON.parse(window.localStorage.getItem("ganttOrder") ?? "[]")
+            const stored = JSON.parse(window.localStorage.getItem("ganttOrder") ?? "[]")
+            return Array.isArray(stored) ? stored : []
         } catch {
             return []
         }
@@ -91,7 +103,8 @@ export default function Dashboard() {
     const [ganttColors, setGanttColors] = useState(() => {
         if (typeof window === "undefined") return {}
         try {
-            return JSON.parse(window.localStorage.getItem("ganttColors") ?? "{}")
+            const stored = JSON.parse(window.localStorage.getItem("ganttColors") ?? "{}")
+            return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {}
         } catch {
             return {}
         }
@@ -101,7 +114,6 @@ export default function Dashboard() {
         deadlineTone: "all",
         status: "all",
     })
-    const [ganttWindow, setGanttWindow] = useState([0, 100])
     const [taskFilters, setTaskFilters] = useState({
         assignee: "all",
         taskType: "all",
@@ -113,8 +125,19 @@ export default function Dashboard() {
     const [authUser, setAuthUser] = useState(null)
     const [userProfile, setUserProfile] = useState(null)
     const [currentGroup, setCurrentGroup] = useState(null)
-    const [teamUsers, setTeamUsers] = useState([])
-    const [membershipReady, setMembershipReady] = useState(false)
+    const [teamUsers, setTeamUsers] = useState(() => demo ? ["小宇", "佳寧", "柏翰"].map(name => ({name})) : [])
+    const [membershipReady, setMembershipReady] = useState(demo)
+    const [searchQuery, setSearchQuery] = useState("")
+    const [sortOrder, setSortOrder] = useState("deadline")
+    const [showComposer, setShowComposer] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [actionMessage, setActionMessage] = useState("")
+    const [actionError, setActionError] = useState("")
+    const [busy, setBusy] = useState(false)
+    const actionLock = useRef(false)
+    const titleRef = useRef(null)
+    const [clockNow, setClockNow] = useState(() => new Date())
+    const [profileReady, setProfileReady] = useState(demo)
     const userAgent =
         typeof navigator === "undefined" ? "" : navigator.userAgent
     const isEmbeddedBrowser =
@@ -122,7 +145,10 @@ export default function Dashboard() {
             userAgent
         )
 
+    // Existing Firebase subscription reset and identity synchronization are intentionally retained.
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
+        if (demo) return
         if (!currentUser?.groupId || !membershipReady) {
             setTasks([])
             setTasksError(null)
@@ -175,18 +201,21 @@ export default function Dashboard() {
         )
 
         return () => unsubscribe()
-    }, [db, currentUser?.groupId, currentUser?.name, membershipReady])
+    }, [demo, db, currentUser?.groupId, currentUser?.name, membershipReady])
 
     useEffect(() => {
+        if (demo) return
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setAuthUser(user)
+            setProfileReady(!user)
             setAuthReady(true)
         })
 
         return () => unsubscribe()
-    }, [auth])
+    }, [demo, auth])
 
     useEffect(() => {
+        if (demo) return
         if (!authUser) {
             setUserProfile(null)
             setMembershipReady(false)
@@ -198,6 +227,7 @@ export default function Dashboard() {
         const unsubscribeUser = onSnapshot(
             userRef,
             (snapshot) => {
+                setProfileReady(true)
                 const data = snapshot.data() ?? {}
                 setUserProfile({
                     uid: authUser.uid,
@@ -209,7 +239,9 @@ export default function Dashboard() {
                     lastNameChangedAt: data.lastNameChangedAt ?? null,
                 })
             },
-            () => {
+            (error) => {
+                setActionError("無法讀取帳號資料，請重新整理或稍後再試。" + (error?.code ? "（" + error.code + "）" : ""))
+                setProfileReady(false)
                 setUserProfile({
                     uid: authUser.uid,
                     name: authUser.displayName ?? "",
@@ -223,9 +255,10 @@ export default function Dashboard() {
         )
 
         return () => unsubscribeUser()
-    }, [authUser, db])
+    }, [demo, authUser, db])
 
     useEffect(() => {
+        if (demo) return
         if (!userProfile?.groupId) {
             setCurrentGroup(null)
             return
@@ -245,9 +278,10 @@ export default function Dashboard() {
         })
 
         return () => unsubscribeGroup()
-    }, [userProfile?.groupId, db])
+    }, [demo, userProfile?.groupId, db])
 
     useEffect(() => {
+        if (demo) return
         if (!userProfile?.groupId || !membershipReady) {
             setTeamUsers([])
             return
@@ -267,9 +301,10 @@ export default function Dashboard() {
         })
 
         return () => unsubscribeUsers()
-    }, [userProfile?.groupId, db, membershipReady])
+    }, [demo, userProfile?.groupId, db, membershipReady])
 
     useEffect(() => {
+        if (demo) return
         if (!authUser) {
             setCurrentUser(null)
             return
@@ -289,15 +324,17 @@ export default function Dashboard() {
             teacherStatus: userProfile?.teacherStatus ?? "",
             lastNameChangedAt: userProfile?.lastNameChangedAt ?? null,
         })
-    }, [authUser, userProfile, currentGroup])
+    }, [demo, authUser, userProfile, currentGroup])
 
     useEffect(() => {
+        if (demo) return
         if (!currentUser?.name || isEditingName) return
         setNameDraft(currentUser.name)
         setNameError("")
-    }, [currentUser?.name, isEditingName])
+    }, [demo, currentUser?.name, isEditingName])
 
     useEffect(() => {
+        if (demo) return
         if (!authUser || !userProfile?.groupId || !userProfile.name) {
             setMembershipReady(false)
             return
@@ -324,19 +361,22 @@ export default function Dashboard() {
                 setMembershipReady(false)
                 console.error("Group member sync failed:", err)
         })
-    }, [authUser, db, userProfile?.groupId, userProfile?.name, currentGroup?.leaderUid])
+    }, [demo, authUser, db, userProfile?.groupId, userProfile?.name, currentGroup?.leaderUid])
 
     useEffect(() => {
+        if (demo) return
         if (typeof window === "undefined") return
-        window.localStorage.setItem("ganttOrder", JSON.stringify(ganttOrder))
-    }, [ganttOrder])
+        try { window.localStorage.setItem("ganttOrder", JSON.stringify(ganttOrder)) } catch { /* Preferences are optional in private browsing. */ }
+    }, [demo, ganttOrder])
 
     useEffect(() => {
+        if (demo) return
         if (typeof window === "undefined") return
-        window.localStorage.setItem("ganttColors", JSON.stringify(ganttColors))
-    }, [ganttColors])
+        try { window.localStorage.setItem("ganttColors", JSON.stringify(ganttColors)) } catch { /* Preferences are optional in private browsing. */ }
+    }, [demo, ganttColors])
 
     useEffect(() => {
+        if (demo) return
         if (!currentUser) return
         if (!currentUser.isLeader) {
             setAssigneeInput(currentUser.name)
@@ -344,11 +384,65 @@ export default function Dashboard() {
         } else {
             setAssigneeInput((current) => current || currentUser.name)
         }
-    }, [currentUser])
+    }, [demo, currentUser])
 
-    const doneCount = tasks.filter((t) => t.status === "done").length
-    const undoneCount = tasks.filter((t) => t.status !== "done").length
-    const totalCount = tasks.length
+    /* eslint-enable react-hooks/set-state-in-effect */
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setClockNow(new Date()), 60000)
+        return () => window.clearInterval(timer)
+    }, [])
+
+    useEffect(() => {
+        const closeNavigation = event => { if (event.key === "Escape") setSidebarOpen(false) }
+        window.addEventListener("keydown", closeNavigation)
+        return () => window.removeEventListener("keydown", closeNavigation)
+    }, [])
+
+    useEffect(() => { if (showComposer) titleRef.current?.focus() }, [showComposer])
+
+    const runAction = async (action, message = "已儲存變更") => {
+        if (actionLock.current) return
+        actionLock.current = true
+        setBusy(true)
+        setActionError("")
+        setActionMessage("")
+        try {
+            const result = await action()
+            if (result !== false) setActionMessage(message)
+        } catch (error) {
+            console.error("Workspace action failed", error)
+            if (editTaskId !== null) setEditError(error?.message || "儲存失敗，請重試。")
+            setActionError(error?.code === "permission-denied" ? "目前沒有操作權限，請確認組別與登入身份。" : error?.message || "儲存失敗，請確認連線後再試一次。")
+        } finally {
+            actionLock.current = false
+            setBusy(false)
+        }
+    }
+    const saveTask = async (id, payload) => {
+        if (demo) {
+            const values = Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, value?._methodName === "serverTimestamp" ? Timestamp.now() : value]))
+            setTasks(current => current.map(task => task.id === id ? {...task, ...values} : task))
+            return
+        }
+        await updateDoc(doc(db, "groups", currentUser.groupId, "tasks", id), payload)
+    }
+    const navigate = (page) => {
+        setSidebarOpen(false)
+        setActivePage(page === "overdue" ? "tasks" : page)
+        if (page === "overdue") setTaskFilters({assignee:"all",taskType:"all",status:"all",deadlineTone:"overdue"})
+        if (page === "overdue") setSearchQuery("")
+        window.scrollTo({top:0, behavior:"instant"})
+    }
+    const exportTasks = () => {
+        const url = URL.createObjectURL(new Blob([tasksToCsv(filteredTasks)], {type:"text/csv;charset=utf-8"}))
+        const link = document.createElement("a")
+        link.href = url
+        link.download = "CampusFlow-tasks-" + new Date().toISOString().slice(0,10) + ".csv"
+        link.click()
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }
+
     const memberOptions = Array.from(
         new Set([
             ...(currentUser?.name ? [currentUser.name] : []),
@@ -368,7 +462,7 @@ export default function Dashboard() {
             : currentUser?.name
               ? [currentUser.name]
               : []
-    const canCreateTasks = currentUser && !currentUser.isTeacher
+    const canCreateTasks = currentUser?.groupId && membershipReady && !currentUser.isTeacher
     const canDeleteTasks = currentUser?.isLeader
     const isTaskOwner = (task) =>
         task?.assignee === currentUser?.name ||
@@ -382,7 +476,7 @@ export default function Dashboard() {
         task.assignee === ALL_ASSIGNEE
 
     const startOfThisWeek = (() => {
-        const now = new Date()
+        const now = clockNow
         // Monday as start of week.
         const day = now.getDay() // 0 (Sun) - 6 (Sat)
         const diff = day === 0 ? -6 : 1 - day
@@ -406,7 +500,6 @@ export default function Dashboard() {
     const tasksThisWeek = tasks.filter((t) => isInThisWeek(getTaskWeekDate(t)))
     const doneThisWeek = tasksThisWeek.filter((t) => t.status === "done").length
     const totalThisWeek = tasksThisWeek.length
-    const isThisWeekComplete = totalThisWeek > 0 && doneThisWeek === totalThisWeek
     const weeklyMvp = memberOptions.map((member) => ({
         member,
         completed: tasksThisWeek.filter(
@@ -416,10 +509,6 @@ export default function Dashboard() {
         ).length,
     })).sort((a, b) => b.completed - a.completed)[0]
 
-    const progressPercent = totalCount
-        ? Math.round((doneCount / totalCount) * 100)
-        : 0
-
     const now = new Date()
 
     const isOverdue = (task) => {
@@ -427,42 +516,7 @@ export default function Dashboard() {
         return task.status !== "done" && d && d.getTime() < now.getTime()
     }
 
-    // 進度條顯示用：未完成任務依期限狀態切成藍/黃/紅
-    const overdueCount = tasks.filter((t) => isOverdue(t)).length
-    const todoSegmentCount = tasks.filter(
-        (t) => t.status === "todo" && !isOverdue(t)
-    ).length
-    const doingSegmentCount = tasks.filter(
-        (t) => t.status === "doing" && !isOverdue(t)
-    ).length
-
-    const barTotalCount = totalCount
-    const todoPct = barTotalCount ? (todoSegmentCount / barTotalCount) * 100 : 0
-    const doingPct = barTotalCount ? (doingSegmentCount / barTotalCount) * 100 : 0
-    const overduePct = barTotalCount ? (overdueCount / barTotalCount) * 100 : 0
-    // 用剩餘值避免浮點四捨五入造成總和超過 100%
-    const donePct = barTotalCount
-        ? Math.max(0, 100 - (todoPct + doingPct + overduePct))
-        : 0
-
-    const GANTT_RANGE_START = new Date(2026, 4, 1, 0, 0, 0, 0) // 2026/05/01
-    const GANTT_RANGE_END = new Date(2028, 5, 30, 23, 59, 59, 999) // 2028/06/30
-    const startOfGanttDay = (date) =>
-        new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
-    const endOfGanttDay = (date) =>
-        new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 0, 0, 0, 0)
-
-    const ganttItems = tasks
-        .filter((task) => task.taskType === "畢業專題")
-        .map((task) => {
-            const rawStartDate =
-                tsToDate(task.startedAt) ?? tsToDate(task.createdAt)
-            const rawEndDate = tsToDate(task.deadlineAt) ?? tsToDate(task.finishedAt)
-            const startDate = rawStartDate ? startOfGanttDay(rawStartDate) : null
-            const endDate = rawEndDate ? endOfGanttDay(rawEndDate) : null
-            return startDate && endDate ? { task, startDate, endDate } : null
-        })
-        .filter(Boolean)
+    const ganttItems = scheduledRows(tasks.filter(task => task.taskType === "畢業專題"))
         .sort((a, b) => {
             const ai = ganttOrder.indexOf(a.task.id)
             const bi = ganttOrder.indexOf(b.task.id)
@@ -473,23 +527,6 @@ export default function Dashboard() {
             }
             return a.startDate - b.startDate
         })
-
-    const ganttRangeStart = GANTT_RANGE_START
-    const ganttRangeEnd = GANTT_RANGE_END
-
-    const ganttTotalMs = Math.max(
-        1,
-        ganttRangeEnd.getTime() - ganttRangeStart.getTime()
-    )
-
-    const ganttMonthTicks = []
-    for (
-        let d = new Date(ganttRangeStart.getFullYear(), ganttRangeStart.getMonth(), 1);
-        d <= ganttRangeEnd;
-        d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    ) {
-        ganttMonthTicks.push(new Date(d))
-    }
 
     const getGanttColor = (task) => {
         if (ganttColors[task.id]) return ganttColors[task.id]
@@ -628,45 +665,9 @@ export default function Dashboard() {
             {task.details ? (
                 collapsibleDetails ? (
                     <div className="mt-1">
-                        {false ? (
-                            <div className="mt-2 rounded border border-amber-200 bg-white/70 p-2 text-xs text-stone-600">
-                                <div className="font-semibold text-stone-800">
-                                    {currentUser.groupName}
-                                </div>
-                                {currentUser.isLeader ? (
-                                    <div className="mt-1 break-all">
-                                        空間代碼：{currentUser.groupId}
-                                    </div>
-                                ) : null}
-                            </div>
-                        ) : null}
-                        {false ? (
-                            <div className="mt-2 rounded border border-amber-200 bg-white/70 p-2 text-xs text-stone-600">
-                                <div className="font-semibold text-stone-800">
-                                    {currentUser.groupName}
-                                </div>
-                                {currentUser.isLeader ? (
-                                    <div className="mt-1 break-all">
-                                        空間代碼：{currentUser.groupId}
-                                    </div>
-                                ) : null}
-                            </div>
-                        ) : null}
-                        {false ? (
-                            <div className="mt-2 rounded border border-amber-200 bg-white/70 p-2 text-xs text-stone-600">
-                                <div className="flex items-center gap-2">
-                                    <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded bg-stone-100 px-2 py-1 text-[11px] text-stone-800">
-                                        {currentUser.groupId}
-                                    </code>
-                                    <button
-                                        className="shrink-0 rounded border border-amber-300 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-amber-50"
-                                        onClick={copyGroupCode}
-                                    >
-                                        {copiedGroupCode ? "已複製" : "複製"}
-                                    </button>
-                                </div>
-                            </div>
-                        ) : null}
+
+
+
                         <button
                             className="text-xs text-blue-600"
                             onClick={() => toggleTaskDetails(task.id)}
@@ -716,7 +717,9 @@ export default function Dashboard() {
     const handleAddTask = async () => {
         const text = input.trim()
         if (!canCreateTasks) return
-        if (!text) return
+        if (!text) { titleRef.current?.focus(); throw new Error("請填寫任務標題。") }
+        const scheduleError = validateSchedule(startInput, deadlineInput)
+        if (scheduleError) throw new Error(scheduleError)
 
         const details = detailsInput.trim()
         const deadlineAt = deadlineInput
@@ -752,10 +755,9 @@ export default function Dashboard() {
             finishedAt: null,
         }
 
-        await addDoc(
-            collection(db, "groups", currentUser.groupId, "tasks"),
-            newTask
-        )
+        if (demo) setTasks(current => [{...newTask,id:crypto.randomUUID(),createdAt:Timestamp.now(),updatedAt:Timestamp.now()}, ...current])
+        else await addDoc(collection(db, "groups", currentUser.groupId, "tasks"), newTask)
+        setShowComposer(false)
         setInput("")
         setDetailsInput("")
         setAssigneeInput(
@@ -935,6 +937,7 @@ export default function Dashboard() {
     }
 
     const handleLogout = () => {
+        if (demo) { window.location.href = window.location.pathname; return }
         signOut(auth)
     }
 
@@ -967,7 +970,7 @@ export default function Dashboard() {
             : null
     })()
     const canChangeName =
-        !nameChangeAvailableAt || nameChangeAvailableAt.getTime() <= Date.now()
+        !nameChangeAvailableAt || nameChangeAvailableAt.getTime() <= clockNow.getTime()
 
     const handleStartEditName = () => {
         setNameDraft(currentUser?.name ?? "")
@@ -982,6 +985,7 @@ export default function Dashboard() {
     }
 
     const handleSaveName = async () => {
+        if (demo) { setActionMessage("示範模式：此操作不會傳送至正式系統。"); return }
         const nextName = nameDraft.trim()
         if (!authUser || !currentUser?.groupId) return
         if (!nextName) {
@@ -1030,6 +1034,7 @@ export default function Dashboard() {
     }
 
     const handleSubmitIssueReport = async () => {
+        if (demo) { setActionMessage("示範模式：此操作不會傳送至正式系統。"); return }
         const message = issueReportText.trim()
         if (!authUser || !currentUser?.groupId) return
         if (message.length < 3) {
@@ -1058,6 +1063,7 @@ export default function Dashboard() {
     }
 
     const handleTeacherJoinGroup = async () => {
+        if (demo) { setActionMessage("示範模式：此操作不會傳送至正式系統。"); return }
         const groupCode = teacherGroupCodeInput.trim()
         if (!authUser || !userProfile || !groupCode) return
         setTeacherJoinError("")
@@ -1106,8 +1112,8 @@ export default function Dashboard() {
         userProfile?.teacherStatus === "approved" &&
         !userProfile?.groupId
     const needsInitialSetup =
-        authReady && authUser && !userProfile?.groupId && !isTeacherAccount
-    const shouldShowLogin = authReady && (!authUser || needsInitialSetup)
+        profileReady && authReady && authUser && !userProfile?.groupId && !isTeacherAccount
+    const shouldShowLogin = !demo && authReady && (!authUser || (profileReady && needsInitialSetup))
 
     const formatTs = (ts) => {
         if (!ts?.toDate) return "—"
@@ -1164,84 +1170,16 @@ export default function Dashboard() {
         return d.getTime() <= soonLimit.getTime() ? "soon" : "normal"
     }
 
-    const getDateAtGanttPercent = (percent) =>
-        new Date(
-            GANTT_RANGE_START.getTime() +
-                (ganttTotalMs * Math.min(100, Math.max(0, percent))) / 100
-        )
-
-    const pageGanttRangeStart = getDateAtGanttPercent(ganttWindow[0])
-    const pageGanttRangeEnd = getDateAtGanttPercent(ganttWindow[1])
-    const pageGanttTotalMs = Math.max(
-        1,
-        pageGanttRangeEnd.getTime() - pageGanttRangeStart.getTime()
-    )
-    const pageGanttDays = pageGanttTotalMs / DAY_MS
-    const pageGanttTicks = []
-    const pushGanttTick = (date, label = "") => {
-        if (date < pageGanttRangeStart || date > pageGanttRangeEnd) return
-        pageGanttTicks.push({ date: new Date(date), label })
-    }
-    const formatGanttMonthLabel = (date) =>
-        date.toLocaleDateString("zh-TW", {
-            year: "2-digit",
-            month: "2-digit",
-        })
-    if (pageGanttDays <= 31) {
-        for (
-            let d = new Date(pageGanttRangeStart.getFullYear(), pageGanttRangeStart.getMonth(), pageGanttRangeStart.getDate());
-            d <= pageGanttRangeEnd;
-            d.setDate(d.getDate() + 1)
-        ) {
-            pushGanttTick(d, d.getDate() === 1 ? formatGanttMonthLabel(d) : "")
-        }
-    } else if (pageGanttDays <= 183) {
-        for (
-            let month = new Date(pageGanttRangeStart.getFullYear(), pageGanttRangeStart.getMonth(), 1);
-            month <= pageGanttRangeEnd;
-            month = new Date(month.getFullYear(), month.getMonth() + 1, 1)
-        ) {
-            pushGanttTick(month, formatGanttMonthLabel(month))
-            pushGanttTick(new Date(month.getFullYear(), month.getMonth(), 11))
-            pushGanttTick(new Date(month.getFullYear(), month.getMonth(), 21))
-        }
-    } else {
-        for (
-            let d = new Date(pageGanttRangeStart.getFullYear(), pageGanttRangeStart.getMonth(), 1);
-            d <= pageGanttRangeEnd;
-            d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-        ) {
-            pushGanttTick(d, formatGanttMonthLabel(d))
-        }
-    }
-    const pageGanttItems = ganttItems.filter((item) => {
-        const task = item.task
-        if (!matchesAssigneeFilter(task, ganttFilters.assignee)) {
-            return false
-        }
-        if (
-            ganttFilters.deadlineTone !== "all" &&
-            getDeadlineTone(task) !== ganttFilters.deadlineTone
-        ) {
-            return false
-        }
-        if (ganttFilters.status !== "all" && task.status !== ganttFilters.status) {
-            return false
-        }
-        return (
-            item.startDate >= pageGanttRangeStart &&
-            item.endDate <= pageGanttRangeEnd
-        )
-    })
-
     const handleDeleteTask = async (task) => {
         if (!canDeleteTasks) return
-        await deleteDoc(doc(db, "groups", currentUser.groupId, "tasks", task.id))
+        if (!window.confirm('確定刪除「' + task.text + '」？此操作無法復原。')) return false
+        if (demo) setTasks(current => current.filter(item => item.id !== task.id))
+        else await deleteDoc(doc(db, "groups", currentUser.groupId, "tasks", task.id))
     }
 
     const handleStartTask = async (task) => {
         if (!canActOnTask(task)) return
-        await updateDoc(doc(db, "groups", currentUser.groupId, "tasks", task.id), {
+        await saveTask(task.id, {
             status: "doing",
             done: false,
             startedAt: serverTimestamp(),
@@ -1251,7 +1189,7 @@ export default function Dashboard() {
 
     const handleCompleteTask = async (task) => {
         if (!canActOnTask(task)) return
-        await updateDoc(doc(db, "groups", currentUser.groupId, "tasks", task.id), {
+        await saveTask(task.id, {
             status: "done",
             done: true,
             finishedAt: serverTimestamp(),
@@ -1293,10 +1231,13 @@ export default function Dashboard() {
     }
 
     const handleSaveEditTask = async (task) => {
+        if (!canEditTask(task)) return false
+        const scheduleError = validateSchedule(editStartInput, editDeadlineInput)
+        if (scheduleError) { setEditError(scheduleError); return false }
         const nextText = editText.trim()
         if (!nextText) {
             setEditError("請填寫任務標題")
-            return
+            return false
         }
 
         const deadlineAt = editDeadlineInput
@@ -1327,7 +1268,7 @@ export default function Dashboard() {
                 : null
         }
 
-        await updateDoc(doc(db, "groups", currentUser.groupId, "tasks", task.id), payload)
+        await saveTask(task.id, payload)
         handleCancelEdit()
     }
 
@@ -1382,17 +1323,8 @@ export default function Dashboard() {
         }))
     }
 
-    const updateGanttWindow = (edge, value) => {
-        const nextValue = Number(value)
-        setGanttWindow(([start, end]) => {
-            if (edge === "start") {
-                return [Math.min(nextValue, end - 1), end]
-            }
-            return [start, Math.max(nextValue, start + 1)]
-        })
-    }
-
-    const filteredTasks = tasks.filter((task) => {
+    const filteredTasks = sortTasks(tasks.filter((task) => {
+        if (!matchesSearch(task, searchQuery)) return false
         if (!matchesAssigneeFilter(task, taskFilters.assignee)) {
             return false
         }
@@ -1409,10 +1341,12 @@ export default function Dashboard() {
             return false
         }
         return true
-    })
+    }), sortOrder)
 
     const getFilteredCalendarTasksForDayKey = (key) =>
-        getTasksForDayKey(key).filter((task) => filteredTasks.includes(task))
+        filteredTasks.filter((task) => getTasksForDayKey(key).includes(task))
+
+    if (!demo && (!authReady || (authUser && !profileReady))) return <div className="loading-screen" role="status"><span className="brand-mark">cf</span><p>{actionError || "正在開啟工作室…"}</p>{actionError ? <button className="secondary-button" onClick={()=>window.location.reload()}>重新載入</button> : null}</div>
 
     if (isTeacherPending) {
         return (
@@ -1447,7 +1381,7 @@ export default function Dashboard() {
                     </p>
                     <input
                         className="mt-4 w-full rounded border border-stone-300 bg-white p-2"
-                        value={teacherGroupCodeInput}
+                        aria-label="指導組別代碼" value={teacherGroupCodeInput}
                         onChange={(e) => setTeacherGroupCodeInput(e.target.value)}
                         placeholder="組別代碼"
                     />
@@ -1475,22 +1409,23 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="flex min-h-screen bg-gradient-to-br from-stone-100 via-amber-50 to-stone-200 font-sans">
-            {currentUser?.groupName ? (
-                <div className="fixed left-64 right-0 top-0 z-30 border-b border-amber-200 bg-stone-50/95 px-6 py-4 text-center shadow-sm backdrop-blur">
-                    <h1 className="text-3xl font-bold text-stone-900">
-                        {currentUser.groupName}
-                    </h1>
-                </div>
-            ) : null}
+        <div className={`workspace ${sidebarOpen ? "sidebar-open" : ""}`} >
+            <a className="skip-link" href="#workspace-main">跳至主要內容</a>
+            <header className="workspace-header" inert={shouldShowLogin}>
+                <button className="mobile-menu" aria-label={sidebarOpen ? "關閉導覽" : "開啟導覽"} aria-expanded={sidebarOpen} onClick={()=>setSidebarOpen(!sidebarOpen)}><Icon name={sidebarOpen ? "close" : "menu"}/></button>
+                <span className="header-project">{currentUser?.groupName || "CampusFlow"}</span>
+                <span className="header-date">{now.toLocaleDateString("zh-TW",{month:"long",day:"numeric",weekday:"short"})}</span>
+                <span className="header-user">{currentUser?.isTeacher ? "指導老師" : currentUser?.isLeader ? "組長" : "組員"}<span className="avatar">{Array.from(currentUser?.name || "C")[0]}</span></span>
+            </header>
             {shouldShowLogin ? (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/50 p-4">
-                    <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-stone-50 p-6 shadow-xl">
+                <div className="login-screen">
+                    <section className="login-story"><a className="brand" href="./"><span className="brand-mark">c<span>f</span></span>CampusFlow</a><div><h1>畢業專題<br/>管理工作室</h1><p>管理小組任務、成員分工與專題進度。<br/>支援行事曆、甘特圖與指導老師檢視。</p><div className="login-features"><span><Icon name="tasks"/>任務分工</span><span><Icon name="gantt"/>進度追蹤</span><span><Icon name="people"/>師生協作</span></div></div><p className="login-foot">學生小組與指導老師共用</p></section>
+                    <div className="login-form">
                         <h2 className="text-2xl font-bold text-stone-900">
                             進入 CampusFlow
                         </h2>
                         <p className="mt-1 text-sm text-stone-600">
-                            輸入匿名並選擇身份，系統會用 Firebase 匿名登入建立本次身份。
+                            使用 Google 帳號登入，再建立或加入你的專題小組。
                         </p>
                         {isEmbeddedBrowser ? (
                             <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -1514,15 +1449,17 @@ export default function Dashboard() {
                                 使用 Google 登入
                             </button>
                         ) : null}
+                        {!authUser && <><p className="login-explainer">第一次使用？登入後，組長可以建立專題，組員使用空間代碼加入，老師則可申請指導權限。</p><a className="demo-link" href="?demo=1">先看看示範工作室 <Icon name="arrow" size={16}/></a></>}
+                        {loginError && !needsInitialSetup ? <p role="alert" className="text-sm text-red-600 mt-3">{loginError}</p> : null}
                         {needsInitialSetup ? (
                         <div className="mt-5 space-y-3">
                             <div>
                                 <label className="text-sm text-stone-600">
-                                    匿名
+                                    顯示名稱
                                 </label>
                                 <input
                                     className="mt-1 w-full rounded border border-stone-300 bg-stone-100 p-2 text-sm text-stone-600"
-                                    value={loginName}
+                                    aria-label="顯示名稱" value={loginName}
                                     onChange={(e) => setLoginName(e.target.value)}
                                     placeholder="例如 Chou"
                                 />
@@ -1533,7 +1470,7 @@ export default function Dashboard() {
                                 </label>
                                 <select
                                     className="mt-1 w-full rounded border border-stone-300 bg-white p-2"
-                                    value={loginRole}
+                                    aria-label="身份" value={loginRole}
                                     onChange={(e) => setLoginRole(e.target.value)}
                                 >
                                     <option value="member">組員</option>
@@ -1548,7 +1485,7 @@ export default function Dashboard() {
                                     </label>
                                     <input
                                         className="mt-1 w-full rounded border border-stone-300 bg-white p-2"
-                                        value={projectNameInput}
+                                        aria-label="畢業專題名稱" value={projectNameInput}
                                         onChange={(e) =>
                                             setProjectNameInput(e.target.value)
                                         }
@@ -1562,7 +1499,7 @@ export default function Dashboard() {
                                     </label>
                                     <input
                                         className="mt-1 w-full rounded border border-stone-300 bg-white p-2"
-                                        value={groupCodeInput}
+                                        aria-label="空間代碼" value={groupCodeInput}
                                         onChange={(e) =>
                                             setGroupCodeInput(e.target.value)
                                         }
@@ -1590,14 +1527,16 @@ export default function Dashboard() {
             ) : null}
 
             {/* 側邊欄 */}
-            <aside className="w-64 bg-stone-50/95 border-r border-amber-200 p-4 backdrop-blur">
+            <aside className="workspace-sidebar" aria-label="工作室導覽" inert={shouldShowLogin}>
+                <a className="brand" href={demo ? "?demo=1" : "./"}><span className="brand-mark">c<span>f</span></span>CampusFlow</a>
+                <p className="sidebar-heading">專題工作室</p>
                 {currentUser ? (
                     <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
                         {isEditingName ? (
                             <div className="space-y-2">
                                 <input
                                     className="w-full rounded border border-amber-300 bg-white px-2 py-1 text-sm text-stone-800"
-                                    value={nameDraft}
+                                    aria-label="新的顯示名稱" value={nameDraft}
                                     onChange={(e) => setNameDraft(e.target.value)}
                                     maxLength={24}
                                 />
@@ -1627,7 +1566,7 @@ export default function Dashboard() {
                                             {currentUser.name}
                                         </p>
                                         <p className="text-xs text-stone-600">
-                                            {currentUser.isLeader ? "組長" : "組員"}
+                                            {currentUser.isTeacher ? "指導老師" : currentUser.isLeader ? "組長" : "組員"}
                                         </p>
                                     </div>
                                     <button
@@ -1660,18 +1599,7 @@ export default function Dashboard() {
                         <p className="text-xs text-stone-600">
                             {currentUser.isLeader ? "組長" : "組員"}
                         </p>
-                        {false ? (
-                            <div className="mt-2 rounded border border-amber-200 bg-white/70 p-2 text-xs text-stone-600">
-                                <div className="font-semibold text-stone-800">
-                                    {currentUser.groupName}
-                                </div>
-                                {currentUser.isLeader ? (
-                                    <div className="mt-1 break-all">
-                                        空間代碼：{currentUser.groupId}
-                                    </div>
-                                ) : null}
-                            </div>
-                        ) : null}
+
                         </div>
                         {currentUser.isLeader && currentUser.groupId ? (
                             <div className="mt-2 rounded border border-amber-200 bg-white/70 p-2 text-xs text-stone-600">
@@ -1696,7 +1624,7 @@ export default function Dashboard() {
                                 <div className="mt-2 flex gap-2">
                                     <input
                                         className="min-w-0 flex-1 rounded border border-stone-300 bg-white px-2 py-1 text-xs"
-                                        value={teacherGroupCodeInput}
+                                        aria-label="指導組別代碼" value={teacherGroupCodeInput}
                                         onChange={(e) => setTeacherGroupCodeInput(e.target.value)}
                                         placeholder="組別代碼"
                                     />
@@ -1724,68 +1652,14 @@ export default function Dashboard() {
                     </div>
                 ) : null}
 
-                <nav className="space-y-2">
-                    <button
-                        className={[
-                            "w-full rounded-lg px-3 py-2 text-left transition",
-                            activePage === "dashboard"
-                                ? "bg-amber-100 text-stone-950 font-medium"
-                                : "text-stone-600 hover:bg-amber-50",
-                        ].join(" ")}
-                        onClick={() => setActivePage("dashboard")}
-                    >
-                        首頁
-                    </button>
-                    <button
-                        className={[
-                            "w-full rounded-lg px-3 py-2 text-left transition",
-                            activePage === "tasks"
-                                ? "bg-amber-100 text-stone-950 font-medium"
-                                : "text-stone-600 hover:bg-amber-50",
-                        ].join(" ")}
-                        onClick={() => setActivePage("tasks")}
-                    >
-                        任務
-                    </button>
-                    <button
-                        className={[
-                            "w-full rounded-lg px-3 py-2 text-left transition",
-                            activePage === "calendar"
-                                ? "bg-amber-100 text-stone-950 font-medium"
-                                : "text-stone-600 hover:bg-amber-50",
-                        ].join(" ")}
-                        onClick={() => setActivePage("calendar")}
-                    >
-                        行事曆
-                    </button>
-                    <button
-                        className={[
-                            "w-full rounded-lg px-3 py-2 text-left transition",
-                            activePage === "gantt"
-                                ? "bg-amber-100 text-stone-950 font-medium"
-                                : "text-stone-600 hover:bg-amber-50",
-                        ].join(" ")}
-                        onClick={() => setActivePage("gantt")}
-                    >
-                        甘特圖
-                    </button>
-                    <button
-                        className={[
-                            "w-full rounded-lg px-3 py-2 text-left transition",
-                            activePage === "leaderboard"
-                                ? "bg-amber-100 text-stone-950 font-medium"
-                                : "text-stone-600 hover:bg-amber-50",
-                        ].join(" ")}
-                        onClick={() => setActivePage("leaderboard")}
-                    >
-                        排行榜
-                    </button>
+                <nav className="workspace-nav">
+                    {[["dashboard","home","工作室總覽"],["tasks","tasks","所有任務"],["calendar","calendar","行事曆"],["gantt","gantt","專題甘特圖"],["leaderboard","award","團隊排行榜"]].map(([page,icon,label]) => <button key={page} aria-current={activePage===page?"page":undefined} onClick={()=>navigate(page)}><Icon name={icon}/><span>{label}</span>{page==="tasks"?<small>{tasks.length}</small>:null}</button>)}
                 </nav>
 
-                <div className="mt-6 space-y-4">
+                <div className="sidebar-secondary">
                     <div className="rounded-xl border border-red-200 bg-red-50 p-3">
                         <h3 className="font-bold text-sm text-red-700 mb-2">
-                            懸賞
+                            逾期提醒與扣分
                         </h3>
                         {overdueOpenTasks.length === 0 ? (
                             <p className="text-xs text-red-700/70">
@@ -1837,7 +1711,7 @@ export default function Dashboard() {
                         </h3>
                         <textarea
                             className="min-h-20 w-full resize-none rounded border border-stone-300 bg-stone-50 p-2 text-xs text-stone-800 outline-none focus:border-amber-500 focus:bg-white"
-                            value={issueReportText}
+                            aria-label="問題回報內容" value={issueReportText}
                             onChange={(e) => setIssueReportText(e.target.value)}
                             maxLength={500}
                             placeholder="簡短描述遇到的問題"
@@ -1859,7 +1733,100 @@ export default function Dashboard() {
             </aside>
 
             {/* 主內容 */}
-            <main className={`flex-1 p-6 ${currentUser?.groupName ? "pt-24" : ""}`}>
+            <main id="workspace-main" className="workspace-main" inert={shouldShowLogin}>
+                {demo ? <div className="demo-banner"><span>示範工作室 · 資料僅供體驗，重新整理後還原。</span><a href={window.location.pathname}>返回登入 <Icon name="arrow" size={14}/></a></div> : null}
+                <div className="page-heading"><div><h1>{({dashboard:"工作室總覽",tasks:"所有任務",calendar:"行事曆",gantt:"專題甘特圖",leaderboard:"團隊排行榜"})[activePage]}</h1><p>{({dashboard:"查看專題進度、截止事項與成員分工。",tasks:"搜尋、篩選與管理小組任務。",calendar:"按日期查看任務的開始與截止時間。",gantt:"查看任務時程、切換時間尺度與匯出提報圖表。",leaderboard:"查看成員完成數、積分與逾期紀錄。"})[activePage]}</p></div>{canCreateTasks?<button className="primary-button" onClick={()=>setShowComposer(!showComposer)} aria-expanded={showComposer}><Icon name="plus" size={18}/>新增任務</button>:null}</div>
+                {actionMessage ? <div role="status" className="feedback success">{actionMessage}<button aria-label="關閉提示" onClick={()=>setActionMessage("")}><Icon name="close" size={16}/></button></div> : null}
+                {actionError ? <div role="alert" className="feedback error">{actionError}<button aria-label="關閉錯誤" onClick={()=>setActionError("")}><Icon name="close" size={16}/></button></div> : null}
+                {showComposer && canCreateTasks ? <>                <section className="task-composer" aria-label="新增任務"><div className="section-title"><h2>新增任務</h2><button onClick={()=>setShowComposer(false)} aria-label="關閉新增任務"><Icon name="close"/></button></div><p>填寫標題、負責人與任務類型。日期可留空。</p>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                        <label className="form-field full-field"><span>任務標題</span><input
+                            className="border p-2 flex-1 min-w-64 rounded"
+                            ref={titleRef}
+                            aria-label="任務標題"
+                            maxLength={160}
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="輸入任務標題"
+                        /></label>
+
+                        <label className="form-field "><span>任務類型</span><select
+                            className="border p-2 rounded"
+                            value={taskScheduleType}
+                            onChange={(e) => setTaskScheduleType(e.target.value)}
+                            aria-label="任務類型"
+                            title="任務類型"
+                        >
+                            <option value="小作業">小作業</option>
+                            <option value="期中作業">期中作業</option>
+                            <option value="期末作業">期末作業</option>
+                            <option value="畢業專題">畢業專題</option>
+                            <option value="其他">其他</option>
+                        </select></label>
+
+                        <label className="form-field "><span>指派對象</span><select
+                            className="border p-2 rounded"
+                            value={assigneeInput}
+                            onChange={(e) => setAssigneeInput(e.target.value)}
+                            aria-label="指派對象"
+                            title="指派對象"
+                        >
+                            {assignableOptions.map((member) => (
+                                <option key={member} value={member}>
+                                    {member}
+                                </option>
+                            ))}
+                        </select></label>
+
+                        <label className="form-field "><span>重要度</span><select
+                            className="border p-2 rounded"
+                            value={importanceInput}
+                            onChange={(e) => setImportanceInput(Number(e.target.value))}
+                            aria-label="重要度"
+                            title="重要度"
+                        >
+                            {IMPORTANCE_OPTIONS.map((level) => (
+                                <option key={level} value={level}>
+                                    {"★".repeat(level)}
+                                </option>
+                            ))}
+                        </select></label>
+
+                        <label className="form-field"><span>開始時間（選填）</span><input
+                            type="datetime-local"
+                            className="border p-2 rounded w-56"
+                            value={startInput}
+                            onChange={(e) => setStartInput(e.target.value)}
+                            aria-label="開始時間"
+                            title="開始時間"
+                        /></label>
+
+                        <label className="form-field"><span>截止時間（選填）</span><input
+                            type="datetime-local"
+                            className="border p-2 rounded w-64"
+                            value={deadlineInput}
+                            onChange={(e) => setDeadlineInput(e.target.value)}
+                            aria-label="截止時間"
+                            title="截止時間"
+                        /></label>
+
+                        <button
+                            className="bg-blue-500 text-white px-3 rounded disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={!canCreateTasks || busy || !input.trim()}
+                            onClick={() => runAction(handleAddTask, "任務已建立")}
+                        >
+                            {busy ? "儲存中…" : "建立任務"}
+                        </button>
+                    </div>
+
+                    <textarea
+                        className="border p-2 rounded w-full min-h-20"
+                        value={detailsInput}
+                        onChange={(e) => setDetailsInput(e.target.value)}
+                        aria-label="詳細內容" placeholder="補上執行方式、參考連結或完成條件…"
+                    />
+                </section></> : null}
+                {activePage === "tasks" || activePage === "calendar" ? <div className="task-tools"><label className="search-field"><Icon name="search" size={18}/><input aria-label="搜尋任務" placeholder="搜尋任務、內容或組員…" value={searchQuery} onChange={event=>setSearchQuery(event.target.value)}/></label><select aria-label="任務排序" value={sortOrder} onChange={event=>setSortOrder(event.target.value)}><option value="deadline">截止時間優先</option><option value="importance">重要度優先</option><option value="newest">最近新增</option></select><button className="secondary-button" onClick={()=>{setTaskFilters({assignee:currentUser?.name ?? "all",taskType:"all",status:"all",deadlineTone:"all"});setSearchQuery("")}}>我的任務</button><button className="secondary-button" onClick={()=>{setSearchQuery("");setTaskFilters({assignee:"all",taskType:"all",status:"all",deadlineTone:"all"})}}>清除篩選</button><button className="secondary-button" disabled={!filteredTasks.length} onClick={exportTasks}><Icon name="download" size={16}/>匯出 CSV</button></div> : null}
                 {tasksError ? (
                     <div className="bg-white p-4 rounded-xl shadow">
                         <h2 className="font-bold mb-2">資料讀取失敗</h2>
@@ -1884,7 +1851,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={taskFilters.assignee}
+                                        aria-label="篩選指派對象" value={taskFilters.assignee}
                                         onChange={(e) =>
                                             updateTaskFilter("assignee", e.target.value)
                                         }
@@ -1904,7 +1871,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={taskFilters.taskType}
+                                        aria-label="篩選任務類型" value={taskFilters.taskType}
                                         onChange={(e) =>
                                             updateTaskFilter("taskType", e.target.value)
                                         }
@@ -1924,7 +1891,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={taskFilters.deadlineTone}
+                                        aria-label="篩選截止狀態" value={taskFilters.deadlineTone}
                                         onChange={(e) =>
                                             updateTaskFilter("deadlineTone", e.target.value)
                                         }
@@ -1941,7 +1908,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={taskFilters.status}
+                                        aria-label="篩選執行狀態" value={taskFilters.status}
                                         onChange={(e) =>
                                             updateTaskFilter("status", e.target.value)
                                         }
@@ -1957,7 +1924,7 @@ export default function Dashboard() {
 
                         <div className="bg-white p-4 rounded-xl shadow">
                             <div className="flex items-center justify-between mb-3">
-                                <button
+                                <button aria-label="上一個月"
                                     className="px-2 py-1 border rounded text-gray-700"
                                     onClick={() =>
                                         setCalendarCursor(
@@ -1969,7 +1936,7 @@ export default function Dashboard() {
                                         )
                                     }
                                 >
-                                    ◀
+                                    <span aria-hidden="true">←</span>
                                 </button>
                                 <h2 className="font-bold">
                                     {new Intl.DateTimeFormat("zh-TW", {
@@ -1977,7 +1944,7 @@ export default function Dashboard() {
                                         month: "long",
                                     }).format(calendarCursor)}
                                 </h2>
-                                <button
+                                <button aria-label="下一個月"
                                     className="px-2 py-1 border rounded text-gray-700"
                                     onClick={() =>
                                         setCalendarCursor(
@@ -1989,10 +1956,11 @@ export default function Dashboard() {
                                         )
                                     }
                                 >
-                                    ▶
+                                    <span aria-hidden="true">→</span>
                                 </button>
                             </div>
 
+                            <div className="calendar-legend"><button className="secondary-button" onClick={()=>{setCalendarCursor(new Date());setSelectedDateKey(dateKey(new Date()))}}>回到今天</button><span>點選日期查看當天任務</span><span>● 有任務 <span className="text-amber-700">● 即將到期</span> <span className="text-red-600">● 已逾期</span></span></div>
                             <div className="grid grid-cols-7 text-xs text-gray-500 mb-2 text-center">
                                 <div className="text-center">日</div>
                                 <div className="text-center">一</div>
@@ -2019,6 +1987,8 @@ export default function Dashboard() {
                                     return (
                                         <button
                                             key={`${cell.key ?? "empty"}-${idx}`}
+                                            aria-label={key ? `${key}，${dayTasks.length} 項任務${dayOverdue ? "，有逾期任務" : daySoon ? "，有即將到期任務" : ""}` : "空白日期"}
+                                            aria-pressed={!!key && key === effectiveSelectedDateKey}
                                             disabled={!key}
                                             onClick={() => setSelectedDateKey(key)}
                                             className={[
@@ -2057,12 +2027,6 @@ export default function Dashboard() {
                             ) : (
                                 <div className="space-y-2">
                                     {getFilteredCalendarTasksForDayKey(effectiveSelectedDateKey)
-                                        .slice()
-                                        .sort((a, b) => {
-                                            const ad = tsToDate(a.deadlineAt) ?? tsToDate(a.createdAt)
-                                            const bd = tsToDate(b.deadlineAt) ?? tsToDate(b.createdAt)
-                                            return (ad?.getTime?.() ?? 0) - (bd?.getTime?.() ?? 0)
-                                        })
                                         .map((task) => (
                                             <div
                                                 key={task.id}
@@ -2091,250 +2055,18 @@ export default function Dashboard() {
                         </div>
                     </div>
                 ) : activePage === "gantt" ? (
-                    <div className="space-y-4">
-                        <div className="bg-white/90 p-4 rounded-xl shadow border border-slate-100">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="font-bold text-lg">完整甘特圖</h2>
-                                <p className="text-sm text-slate-500">
-                                    顯示 {pageGanttItems.length} / {ganttItems.length} 個畢業專題
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div>
-                                    <div className="text-xs text-slate-500 mb-1">
-                                        指派對象
-                                    </div>
-                                    <select
-                                        className="border p-2 rounded w-full"
-                                        value={ganttFilters.assignee}
-                                        onChange={(e) =>
-                                            updateGanttFilter("assignee", e.target.value)
-                                        }
-                                    >
-                                        <option value="all">全部</option>
-                                        {filterAssigneeOptions.map((member) => (
-                                            <option key={member} value={member}>
-                                                {member}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-slate-500 mb-1">
-                                        截止狀態
-                                    </div>
-                                    <select
-                                        className="border p-2 rounded w-full"
-                                        value={ganttFilters.deadlineTone}
-                                        onChange={(e) =>
-                                            updateGanttFilter("deadlineTone", e.target.value)
-                                        }
-                                    >
-                                        <option value="all">全部</option>
-                                        <option value="soon">將近</option>
-                                        <option value="overdue">已超期</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-slate-500 mb-1">
-                                        執行狀態
-                                    </div>
-                                    <select
-                                        className="border p-2 rounded w-full"
-                                        value={ganttFilters.status}
-                                        onChange={(e) =>
-                                            updateGanttFilter("status", e.target.value)
-                                        }
-                                    >
-                                        <option value="all">全部</option>
-                                        <option value="todo">未執行</option>
-                                        <option value="doing">執行中</option>
-                                        <option value="done">已完成</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-stone-50/95 p-4 rounded-xl shadow border border-amber-200">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-bold text-amber-900">時間卷軸</h3>
-                                <p className="text-sm text-stone-600">
-                                    {pageGanttRangeStart.toLocaleDateString()} - {pageGanttRangeEnd.toLocaleDateString()}
-                                </p>
-                            </div>
-                            <div className="relative h-14">
-                                <div
-                                    className="absolute top-0 -translate-x-1/2 whitespace-nowrap rounded bg-stone-800 px-2 py-0.5 text-xs text-stone-50"
-                                    style={{ left: `${ganttWindow[0]}%` }}
-                                >
-                                    {pageGanttRangeStart.toLocaleDateString()}
-                                </div>
-                                <div
-                                    className="absolute top-0 -translate-x-1/2 whitespace-nowrap rounded bg-stone-800 px-2 py-0.5 text-xs text-stone-50"
-                                    style={{ left: `${ganttWindow[1]}%` }}
-                                >
-                                    {pageGanttRangeEnd.toLocaleDateString()}
-                                </div>
-                                <div className="absolute left-0 right-0 top-7 h-2 rounded-full bg-stone-200"></div>
-                                <div
-                                    className="absolute top-7 h-2 rounded-full bg-amber-600"
-                                    style={{
-                                        left: `${ganttWindow[0]}%`,
-                                        width: `${ganttWindow[1] - ganttWindow[0]}%`,
-                                    }}
-                                ></div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="99"
-                                    value={ganttWindow[0]}
-                                    onChange={(e) => updateGanttWindow("start", e.target.value)}
-                                    className="absolute top-4 left-0 w-full accent-amber-700"
-                                    aria-label="時間尺度起點"
-                                />
-                                <input
-                                    type="range"
-                                    min="1"
-                                    max="100"
-                                    value={ganttWindow[1]}
-                                    onChange={(e) => updateGanttWindow("end", e.target.value)}
-                                    className="absolute top-8 left-0 w-full accent-amber-700"
-                                    aria-label="時間尺度終點"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="bg-white/90 p-4 rounded-xl shadow border border-slate-100 overflow-x-auto">
-                            {pageGanttItems.length === 0 ? (
-                                <p className="text-sm text-slate-500">
-                                    目前沒有符合篩選與時間尺度的畢業專題任務
-                                </p>
-                            ) : (
-                                <div className="min-w-[1100px]">
-                                    <div className="flex items-end gap-2 text-xs text-slate-500 mb-3">
-                                        <div className="w-[25rem] shrink-0 grid grid-cols-[1fr_3.5rem_6rem] gap-2">
-                                            <div>任務</div>
-                                            <div>排序</div>
-                                            <div>顏色</div>
-                                        </div>
-                                        <div className="flex-1 h-8 relative border-b border-slate-200">
-                                            {pageGanttTicks.map((tick) => {
-                                                const leftPct =
-                                                    ((tick.date.getTime() -
-                                                        pageGanttRangeStart.getTime()) /
-                                                        pageGanttTotalMs) *
-                                                    100
-
-                                                return (
-                                                    <div
-                                                        key={tick.date.getTime()}
-                                                        className="absolute bottom-0 -translate-x-1/2 text-center"
-                                                        style={{ left: `${leftPct}%` }}
-                                                    >
-                                                        <div className="h-2 border-l border-slate-300 mx-auto"></div>
-                                                        {tick.label ? (
-                                                            <div className="mt-1 whitespace-nowrap">
-                                                                {tick.label}
-                                                            </div>
-                                                        ) : null}
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        {pageGanttItems.map((item, index) => {
-                                            const startMs = item.startDate.getTime()
-                                            const endMs = item.endDate.getTime()
-                                            const leftPct =
-                                                ((startMs - pageGanttRangeStart.getTime()) /
-                                                    pageGanttTotalMs) *
-                                                100
-                                            const widthPct = Math.max(
-                                                2,
-                                                ((endMs - startMs) / pageGanttTotalMs) * 100
-                                            )
-
-                                            return (
-                                                <div
-                                                    key={item.task.id}
-                                                    className="flex items-center gap-2 rounded-lg py-1 transition duration-150 ease-out hover:scale-[1.005] hover:bg-slate-50"
-                                                >
-                                                    <div className="w-[25rem] shrink-0 grid grid-cols-[1fr_3.5rem_6rem] gap-2 items-center">
-                                                        <div className="text-sm truncate">
-                                                            {item.task.text}
-                                                        </div>
-                                                        <div className="flex gap-1">
-                                                            <button
-                                                                className="border rounded px-1 text-xs text-slate-600 disabled:opacity-30"
-                                                                disabled={index === 0}
-                                                                onClick={() =>
-                                                                    moveGanttItem(item.task.id, -1)
-                                                                }
-                                                                title="上移"
-                                                            >
-                                                                ↑
-                                                            </button>
-                                                            <button
-                                                                className="border rounded px-1 text-xs text-slate-600 disabled:opacity-30"
-                                                                disabled={index === pageGanttItems.length - 1}
-                                                                onClick={() =>
-                                                                    moveGanttItem(item.task.id, 1)
-                                                                }
-                                                                title="下移"
-                                                            >
-                                                                ↓
-                                                            </button>
-                                                        </div>
-                                                        <select
-                                                            className="border rounded p-1 text-xs"
-                                                            value={ganttColors[item.task.id] ?? ""}
-                                                            onChange={(e) =>
-                                                                updateGanttColor(item.task.id, e.target.value)
-                                                            }
-                                                        >
-                                                            <option value="">自動</option>
-                                                            {GANTT_COLOR_OPTIONS.map((color) => (
-                                                                <option key={color.value} value={color.value}>
-                                                                    {color.label}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                    <div className="flex-1 h-5 bg-slate-100 rounded-full relative overflow-hidden">
-                                                        <div
-                                                            className={`absolute top-0 h-5 rounded-full ${getGanttColor(item.task)}`}
-                                                            style={{
-                                                                left: `${leftPct}%`,
-                                                                width: `${widthPct}%`,
-                                                            }}
-                                                            title={`開始：${formatTs(
-                                                                item.task.startedAt ?? item.task.createdAt
-                                                            )}\n截止：${formatTs(item.task.deadlineAt)}`}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    <GanttChart items={ganttItems} taskCount={tasks.filter(task=>task.taskType==="畢業專題").length} projectName={currentUser?.groupName} demo={demo} members={filterAssigneeOptions} filters={ganttFilters} onFilter={updateGanttFilter} colors={ganttColors} colorOptions={GANTT_COLOR_OPTIONS} onColor={updateGanttColor} onMove={moveGanttItem} getColor={getGanttColor} matchesAssignee={matchesAssigneeFilter} getDeadlineTone={getDeadlineTone}/>
                 ) : activePage === "leaderboard" ? (
                     <div className="space-y-6">
                         <div className="bg-white/90 p-5 rounded-xl shadow border border-slate-100">
                             <h2 className="font-bold text-lg mb-5">排行榜</h2>
-                            {true ? (
-                                <div className="flex justify-center mb-6">
+                            <div className="flex justify-center mb-6">
                                     <div className="w-full max-w-xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center shadow-lg transition duration-150 ease-out hover:scale-[1.02]">
                                         <p className="text-sm font-semibold text-amber-700">
                                             {leaderboardHasScores ? `第 ${leaderboardWithRanks[0]?.rank ?? 1} 名` : "尚無排名"}
                                         </p>
                                         <p className="hidden">
-                                            第 {leaderboardWithRanks[0].rank} 名
+                                            第 {leaderboardWithRanks[0]?.rank} 名
                                         </p>
                                         <h3 className="text-4xl font-bold text-slate-900 mt-1">
                                             {leaderboardHasScores ? leaderboardWithRanks[0]?.member : "尚無排名"}
@@ -2364,13 +2096,8 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                 </div>
-                            ) : null}
 
-                            {false ? (
-                                <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
-                                    目前大家積分都是 0，暫不顯示名次。
-                                </p>
-                            ) : null}
+
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {(leaderboardHasScores ? leaderboardWithRanks.slice(1) : leaderboardWithRanks).map((entry, index) => (
@@ -2393,7 +2120,7 @@ export default function Dashboard() {
                                                     {entry.member}
                                                 </h3>
                                             </div>
-                                            <span className="text-3xl font-bold text-teal-600">
+                                            <span className="text-3xl font-bold text-indigo-600">
                                                 {entry.points}
                                             </span>
                                         </div>
@@ -2424,7 +2151,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={taskFilters.assignee}
+                                        aria-label="篩選指派對象" value={taskFilters.assignee}
                                         onChange={(e) =>
                                             updateTaskFilter("assignee", e.target.value)
                                         }
@@ -2444,7 +2171,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={taskFilters.taskType}
+                                        aria-label="篩選任務類型" value={taskFilters.taskType}
                                         onChange={(e) =>
                                             updateTaskFilter("taskType", e.target.value)
                                         }
@@ -2464,7 +2191,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={taskFilters.deadlineTone}
+                                        aria-label="篩選截止狀態" value={taskFilters.deadlineTone}
                                         onChange={(e) =>
                                             updateTaskFilter("deadlineTone", e.target.value)
                                         }
@@ -2481,7 +2208,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={taskFilters.status}
+                                        aria-label="篩選執行狀態" value={taskFilters.status}
                                         onChange={(e) =>
                                             updateTaskFilter("status", e.target.value)
                                         }
@@ -2512,7 +2239,7 @@ export default function Dashboard() {
                                                     <p
                                                         className={
                                                             task.status === "done"
-                                                                ? "font-medium line-through text-gray-400"
+                                                                ? "font-medium line-through text-gray-500"
                                                                 : "font-medium"
                                                         }
                                                     >
@@ -2535,7 +2262,7 @@ export default function Dashboard() {
                                                 {task.status === "todo" && canActOnTask(task) ? (
                                                     <button
                                                         className="text-xs text-blue-500"
-                                                        onClick={() => handleStartTask(task)}
+                                                        onClick={() => runAction(() => handleStartTask(task))}
                                                     >
                                                         → 開始
                                                     </button>
@@ -2543,7 +2270,7 @@ export default function Dashboard() {
                                                 {task.status === "doing" && canActOnTask(task) ? (
                                                     <button
                                                         className="text-xs text-green-500"
-                                                        onClick={() => handleCompleteTask(task)}
+                                                        onClick={() => runAction(() => handleCompleteTask(task))}
                                                     >
                                                         → 完成
                                                     </button>
@@ -2559,7 +2286,7 @@ export default function Dashboard() {
                                                 {canDeleteTasks ? (
                                                     <button
                                                         className="text-xs text-red-500"
-                                                        onClick={() => handleDeleteTask(task)}
+                                                        onClick={() => runAction(() => handleDeleteTask(task))}
                                                     >
                                                         → 刪除
                                                     </button>
@@ -2573,275 +2300,12 @@ export default function Dashboard() {
                     </div>
                 ) : (
                     <>
-                        {/* 上方統計 */}
-                        <div className="grid grid-cols-4 gap-4 mb-6">
-
-                    <div className="bg-white p-4 rounded-xl shadow">
-                        <p className="text-gray-500">事項總數</p>
-                        <h2 className="text-2xl font-bold">{totalCount}</h2>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-xl shadow">
-                        <p className="text-gray-500">未完成任務</p>
-                        <h2 className="text-2xl font-bold">{undoneCount}</h2>
-                    </div>
-
-                    <div
-                        className={`p-4 rounded-xl shadow ${
-                            isThisWeekComplete
-                                ? "bg-green-50 border border-green-400"
-                                : "bg-yellow-50 border border-yellow-400"
-                        }`}
-                    >
-                        <p className="text-gray-500">本週完成</p>
-                        <h2 className="text-2xl font-bold">
-                            {doneThisWeek}/{totalThisWeek}
-                        </h2>
-                    </div>
-
-                    <div className="bg-white/90 p-4 rounded-xl shadow border border-slate-100">
-                        <p className="text-gray-500">本週 MVP</p>
-                        <h2 className="text-2xl font-bold">
-                            {weeklyMvp?.completed ? weeklyMvp.member : "—"}
-                        </h2>
-                        <p className="text-xs text-gray-500">
-                            完成 {weeklyMvp?.completed ?? 0} 項
-                        </p>
-                    </div>
-
-                </div>
-
-                {/* 甘特圖 */}
-                <div className="bg-white p-4 rounded-xl shadow mb-6">
-                    <p className="mb-2 font-medium">甘特圖</p>
-
-                    {ganttItems.length === 0 ? (
-                        <p className="text-sm text-gray-500">
-                            目前沒有有截止時間的任務
-                        </p>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <div className="flex items-end gap-2 text-xs text-gray-500 mb-3 min-w-[900px]">
-                                <div className="w-52 shrink-0">任務</div>
-                                <div className="flex-1 h-8 relative border-b border-gray-200">
-                                    {ganttMonthTicks.map((tick) => {
-                                        const leftPct =
-                                            ((tick.getTime() -
-                                                ganttRangeStart.getTime()) /
-                                                ganttTotalMs) *
-                                            100
-
-                                        return (
-                                            <div
-                                                key={`${tick.getFullYear()}-${tick.getMonth()}`}
-                                                className="absolute bottom-0 -translate-x-1/2 text-center"
-                                                style={{ left: `${leftPct}%` }}
-                                            >
-                                                <div className="h-2 border-l border-gray-300 mx-auto"></div>
-                                                <div className="mt-1 whitespace-nowrap">
-                                                    {tick.toLocaleDateString(
-                                                        "zh-TW",
-                                                        {
-                                                            year: "2-digit",
-                                                            month: "2-digit",
-                                                        }
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-
-                            <div className="space-y-2 min-w-[900px]">
-                                {ganttItems
-                                    .slice()
-                                    .sort(
-                                        (a, b) =>
-                                            getImportance(b.task) -
-                                                getImportance(a.task) ||
-                                            a.startDate - b.startDate
-                                    )
-                                    .slice(0, 10)
-                                    .map((item) => {
-                                    const startMs = item.startDate.getTime()
-                                    const endMs = item.endDate.getTime()
-                                    const rangeStartMs =
-                                        ganttRangeStart.getTime()
-                                    const rangeEndMs =
-                                        ganttRangeEnd.getTime()
-
-                                    const clampedStartMs = Math.max(
-                                        startMs,
-                                        rangeStartMs
-                                    )
-                                    const clampedEndMs = Math.min(
-                                        endMs,
-                                        rangeEndMs
-                                    )
-
-                                    if (clampedEndMs <= clampedStartMs)
-                                        return null
-
-                                    const leftPct =
-                                        ((clampedStartMs - rangeStartMs) /
-                                            ganttTotalMs) *
-                                        100
-                                    const rawWidthPct =
-                                        ((clampedEndMs - clampedStartMs) /
-                                            ganttTotalMs) *
-                                        100
-                                    const widthPct = Math.min(100, Math.max(2, rawWidthPct))
-
-                                    return (
-                                        <div
-                                            key={item.task.id}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <div className="w-52 text-sm truncate">
-                                                {item.task.text}
-                                            </div>
-                                            <div className="flex-1 h-4 bg-gray-100 rounded relative overflow-hidden">
-                                                <div
-                                                    className={`absolute top-0 h-4 ${getGanttColor(item.task)} rounded`}
-                                                    style={{
-                                                        left: `${leftPct}%`,
-                                                        width: `${widthPct}%`,
-                                                    }}
-                                                    title={`開始：${formatTs(
-                                                        item.task.startedAt ?? item.task.createdAt
-                                                    )}\n截止：${formatTs(
-                                                        item.task.deadlineAt
-                                                    )}`}
-                                                />
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* 進度條 */}
-                <div className="bg-white p-4 rounded-xl shadow mb-6">
-                    <p className="mb-2 font-medium">畢業專題進度</p>
-
-                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div className="flex h-3">
-                            <div
-                                className="bg-blue-500 h-3"
-                                style={{ width: `${todoPct}%` }}
-                            />
-                            <div
-                                className="bg-yellow-500 h-3"
-                                style={{ width: `${doingPct}%` }}
-                            />
-                            <div
-                                className="bg-red-500 h-3"
-                                style={{ width: `${overduePct}%` }}
-                            />
-                            <div
-                                className="bg-green-500 h-3"
-                                style={{ width: `${donePct}%` }}
-                            />
-                        </div>
-                    </div>
-
-                    <p className="text-sm text-gray-500 mt-2">
-                        {progressPercent}% 已完成（未執行 {todoSegmentCount}、
-                        執行中 {doingSegmentCount}、過期 {overdueCount}）
-                    </p>
-                </div>
-                <div className="bg-white p-4 rounded-xl shadow mb-3">
-                    <div className="flex flex-wrap gap-2 mb-3">
-                        <input
-                            className="border p-2 flex-1 min-w-64 rounded"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="新增任務..."
-                        />
-
-                        <select
-                            className="border p-2 rounded"
-                            value={taskScheduleType}
-                            onChange={(e) => setTaskScheduleType(e.target.value)}
-                            aria-label="任務類型"
-                            title="任務類型"
-                        >
-                            <option value="小作業">小作業</option>
-                            <option value="期中作業">期中作業</option>
-                            <option value="期末作業">期末作業</option>
-                            <option value="畢業專題">畢業專題</option>
-                            <option value="其他">其他</option>
-                        </select>
-
-                        <select
-                            className="border p-2 rounded"
-                            value={assigneeInput}
-                            onChange={(e) => setAssigneeInput(e.target.value)}
-                            aria-label="指派對象"
-                            title="指派對象"
-                        >
-                            {assignableOptions.map((member) => (
-                                <option key={member} value={member}>
-                                    {member}
-                                </option>
-                            ))}
-                        </select>
-
-                        <select
-                            className="border p-2 rounded"
-                            value={importanceInput}
-                            onChange={(e) => setImportanceInput(Number(e.target.value))}
-                            aria-label="重要度"
-                            title="重要度"
-                        >
-                            {IMPORTANCE_OPTIONS.map((level) => (
-                                <option key={level} value={level}>
-                                    {"★".repeat(level)}
-                                </option>
-                            ))}
-                        </select>
-
-                        <input
-                            type="datetime-local"
-                            className="border p-2 rounded w-56"
-                            value={startInput}
-                            onChange={(e) => setStartInput(e.target.value)}
-                            aria-label="開始時間"
-                            title="開始時間"
-                        />
-
-                        <input
-                            type="datetime-local"
-                            className="border p-2 rounded w-64"
-                            value={deadlineInput}
-                            onChange={(e) => setDeadlineInput(e.target.value)}
-                            aria-label="截止時間"
-                            title="截止時間"
-                        />
-
-                        <button
-                            className="bg-blue-500 text-white px-3 rounded disabled:cursor-not-allowed disabled:opacity-50"
-                            disabled={!canCreateTasks}
-                            onClick={handleAddTask}
-                        >
-                            新增
-                        </button>
-                    </div>
-
-                    <textarea
-                        className="border p-2 rounded w-full min-h-20"
-                        value={detailsInput}
-                        onChange={(e) => setDetailsInput(e.target.value)}
-                        placeholder="詳細內容..."
-                    />
-                </div>
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                        <Overview tasks={tasks} user={currentUser} members={memberOptions} onNavigate={navigate} onTask={task=>{if(canEditTask(task)) handleOpenEditTask(task); else {setSearchQuery(task.text);setTaskFilters({assignee:"all",taskType:"all",status:"all",deadlineTone:"all"});navigate("tasks")}}} weeklyMvp={weeklyMvp} doneThisWeek={doneThisWeek} totalThisWeek={totalThisWeek}/>
+                        <div className="section-title board-title"><h2>任務看板</h2><button className="text-action" onClick={()=>navigate("tasks")}>查看所有任務 <Icon name="arrow" size={16}/></button></div>
+                <div className="task-board grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
                     {/* 未執行 */}
                     <div className="bg-white p-4 rounded shadow">
-                        <h3 className="font-bold mb-3">🟦 未執行</h3>
+                        <h3 className="font-bold mb-3">未執行 <span className="board-count">{tasks.filter(t=>t.status==="todo").length}</span></h3>
                         <div className="space-y-3">
                             {tasks.filter((t) => t.status === "todo").length === 0 ? (
                                 <p className="text-sm text-gray-500">目前沒有任務</p>
@@ -2860,12 +2324,12 @@ export default function Dashboard() {
                                             <button
                                                 className="text-xs text-blue-500 mt-2 disabled:cursor-not-allowed disabled:text-gray-300"
                                                 disabled={!canActOnTask(task)}
-                                                onClick={() => handleStartTask(task)}
+                                                onClick={() => runAction(() => handleStartTask(task))}
                                             >
                                                 → 開始
                                             </button>
                                             <button
-                                                className="text-xs text-purple-500 mt-2"
+                                                disabled={!canEditTask(task)} className="text-xs text-purple-500 mt-2"
                                                 onClick={() =>
                                                     handleOpenEditTask(task)
                                                 }
@@ -2875,9 +2339,7 @@ export default function Dashboard() {
                                             {canDeleteTasks ? (
                                                 <button
                                                     className="text-xs text-red-500 mt-2"
-                                                    onClick={() =>
-                                                        handleDeleteTask(task)
-                                                    }
+                                                    onClick={() => runAction(() => handleDeleteTask(task))}
                                                 >
                                                     → 刪除
                                                 </button>
@@ -2890,7 +2352,7 @@ export default function Dashboard() {
 
                     {/* 執行中 */}
                     <div className="bg-white p-4 rounded shadow">
-                        <h3 className="font-bold mb-3">🟨 執行中</h3>
+                        <h3 className="font-bold mb-3">執行中 <span className="board-count">{tasks.filter(t=>t.status==="doing").length}</span></h3>
                         <div className="space-y-3">
                             {tasks.filter((t) => t.status === "doing").length === 0 ? (
                                 <p className="text-sm text-gray-500">目前沒有任務</p>
@@ -2910,12 +2372,12 @@ export default function Dashboard() {
                                             <button
                                                 className="text-xs text-green-500 mt-2 disabled:cursor-not-allowed disabled:text-gray-300"
                                                 disabled={!canActOnTask(task)}
-                                                onClick={() => handleCompleteTask(task)}
+                                                onClick={() => runAction(() => handleCompleteTask(task))}
                                             >
                                                 → 完成
                                             </button>
                                             <button
-                                                className="text-xs text-purple-500 mt-2"
+                                                disabled={!canEditTask(task)} className="text-xs text-purple-500 mt-2"
                                                 onClick={() =>
                                                     handleOpenEditTask(task)
                                                 }
@@ -2925,9 +2387,7 @@ export default function Dashboard() {
                                             {canDeleteTasks ? (
                                                 <button
                                                     className="text-xs text-red-500 mt-2"
-                                                    onClick={() =>
-                                                        handleDeleteTask(task)
-                                                    }
+                                                    onClick={() => runAction(() => handleDeleteTask(task))}
                                                 >
                                                     → 刪除
                                                 </button>
@@ -2940,7 +2400,7 @@ export default function Dashboard() {
 
                     {/* 執行完成 */}
                     <div className="bg-white p-4 rounded shadow">
-                        <h3 className="font-bold mb-3">🟩 執行完成</h3>
+                        <h3 className="font-bold mb-3">已完成 <span className="board-count">{tasks.filter(t=>t.status==="done").length}</span></h3>
                         <div className="space-y-3">
                             {tasks.filter((t) => t.status === "done").length === 0 ? (
                                 <p className="text-sm text-gray-500">目前沒有任務</p>
@@ -2952,7 +2412,7 @@ export default function Dashboard() {
                                             key={task.id}
                                             className={`p-2 border rounded ${getTaskCardClass(task)}`}
                                         >
-                                            <p className="font-medium line-through text-gray-400">
+                                            <p className="font-medium line-through text-gray-500">
                                                 {task.text}
                                             </p>
                                             {renderTaskMeta(task, {
@@ -2960,7 +2420,7 @@ export default function Dashboard() {
                                                 collapsibleDetails: true,
                                             })}
                                             <button
-                                                className="text-xs text-purple-500 mt-2"
+                                                disabled={!canEditTask(task)} className="text-xs text-purple-500 mt-2"
                                                 onClick={() =>
                                                     handleOpenEditTask(task)
                                                 }
@@ -2970,9 +2430,7 @@ export default function Dashboard() {
                                             {canDeleteTasks ? (
                                                 <button
                                                     className="text-xs text-red-500 mt-2"
-                                                    onClick={() =>
-                                                        handleDeleteTask(task)
-                                                    }
+                                                    onClick={() => runAction(() => handleDeleteTask(task))}
                                                 >
                                                     → 刪除
                                                 </button>
@@ -2984,16 +2442,21 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+
+                    </>
+                )}
                 {/* 編輯任務 Modal */}
                 {editingTask && (
-                    <div
-                        className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+                    <dialog
+                        ref={node => { if (node && !node.open) node.showModal() }}
+                        onCancel={handleCancelEdit}
+                        className="edit-backdrop" aria-label="編輯任務"
                         onClick={(e) => {
                             if (e.target === e.currentTarget)
                                 handleCancelEdit()
                         }}
                     >
-                        <div className="bg-white rounded-xl p-4 w-full max-w-xl shadow">
+                        <div className="edit-dialog bg-white rounded-xl p-4 w-full max-w-xl shadow">
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="font-bold text-lg">編輯任務</h3>
                                 <button
@@ -3017,7 +2480,7 @@ export default function Dashboard() {
                                     </div>
                                     <input
                                         className="border p-2 rounded w-full"
-                                        value={editText}
+                                        aria-label="任務標題" value={editText}
                                         onChange={(e) =>
                                             setEditText(e.target.value)
                                         }
@@ -3030,7 +2493,7 @@ export default function Dashboard() {
                                     </div>
                                     <textarea
                                         className="border p-2 rounded w-full min-h-24"
-                                        value={editDetails}
+                                        aria-label="詳細內容" value={editDetails}
                                         onChange={(e) =>
                                             setEditDetails(e.target.value)
                                         }
@@ -3043,7 +2506,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={editAssignee}
+                                        aria-label="指派對象" value={editAssignee}
                                         onChange={(e) =>
                                             setEditAssignee(e.target.value)
                                         }
@@ -3062,7 +2525,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={editImportance}
+                                        aria-label="重要度" value={editImportance}
                                         onChange={(e) =>
                                             setEditImportance(Number(e.target.value))
                                         }
@@ -3081,7 +2544,7 @@ export default function Dashboard() {
                                     </div>
                                     <select
                                         className="border p-2 rounded w-full"
-                                        value={editTaskType}
+                                        aria-label="任務類型" value={editTaskType}
                                         onChange={(e) =>
                                             setEditTaskType(e.target.value)
                                         }
@@ -3101,7 +2564,7 @@ export default function Dashboard() {
                                     <input
                                         type="datetime-local"
                                         className="border p-2 rounded w-full"
-                                        value={editStartInput}
+                                        aria-label="開始時間" value={editStartInput}
                                         onChange={(e) =>
                                             setEditStartInput(
                                                 e.target.value
@@ -3117,7 +2580,7 @@ export default function Dashboard() {
                                     <input
                                         type="datetime-local"
                                         className="border p-2 rounded w-full"
-                                        value={editDeadlineInput}
+                                        aria-label="截止時間" value={editDeadlineInput}
                                         onChange={(e) =>
                                             setEditDeadlineInput(
                                                 e.target.value
@@ -3134,7 +2597,7 @@ export default function Dashboard() {
                                         <input
                                             type="datetime-local"
                                             className="border p-2 rounded w-full"
-                                            value={editFinishedInput}
+                                            aria-label="完成時間" value={editFinishedInput}
                                             onChange={(e) =>
                                                 setEditFinishedInput(
                                                     e.target.value
@@ -3146,10 +2609,8 @@ export default function Dashboard() {
 
                                 <div className="flex gap-2 pt-1">
                                     <button
-                                        className="bg-blue-500 text-white px-3 py-2 rounded"
-                                        onClick={() =>
-                                            handleSaveEditTask(editingTask)
-                                        }
+                                        disabled={busy} className="bg-blue-500 text-white px-3 py-2 rounded"
+                                        onClick={() => runAction(() => handleSaveEditTask(editingTask))}
                                     >
                                         儲存
                                     </button>
@@ -3162,11 +2623,9 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </dialog>
                 )}
 
-                    </>
-                )}
             </main>
         </div>
     )

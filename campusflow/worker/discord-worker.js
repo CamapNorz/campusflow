@@ -1,4 +1,3 @@
-const CLIENT_ID = "1510658803002249296"
 const DAY_MS = 24 * 60 * 60 * 1000
 const FIRESTORE_BASE = (projectId) =>
     `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`

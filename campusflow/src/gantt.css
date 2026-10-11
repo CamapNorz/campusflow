@@ -1,0 +1,56 @@
+.gantt-workspace { min-width: 0; }
+.gantt-settings { padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 18px; }
+.gantt-filter-row, .gantt-range-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
+.gantt-range-row { padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--line); }
+.gantt-field { display: grid; gap: 7px; font-size: 12px; color: #53647e; min-width: 140px; }
+.gantt-field :is(input, select) { font-size: 13px; min-height: 40px; }
+.gantt-export-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.gantt-export-actions .primary-button { min-height: 40px; padding-top: 8px; padding-bottom: 8px; }
+.gantt-help { font-size: 12px; line-height: 1.8; margin: 16px 0 0; color: #657084; }
+.gantt-chart-shell { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: white; overflow: hidden; }
+.gantt-chart-scroll { overflow: auto; max-width: 100%; }
+.gantt-chart-scroll svg { display: block; max-width: none; }
+.gantt-frozen-columns { position: sticky; left: 0; height: 0; width: 450px; z-index: 2; pointer-events: none; }
+.gantt-frozen-columns>div { position: absolute; top: 99px; width: 100%; overflow: hidden; border-right: 1px solid #d6deea; }
+.gantt-svg-row { cursor: pointer; outline: none; }
+.gantt-svg-row:hover .gantt-row-hit, .gantt-svg-row:focus .gantt-row-hit { fill: #375ed310; stroke: #6e8cf1; stroke-width: 1; }
+.gantt-detail { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 17px 20px; margin-top: 12px; border-radius: 10px; background: #edf2fc; font-size: 12px; color: #344760; }
+.gantt-detail strong { width: 100%; font-size: 14px; overflow-wrap: anywhere; }
+.gantt-notice { padding: 12px 16px; background: #eaf0ff; color: #344e87; font-size: 13px; border-radius: 8px; margin: 0 0 14px; }
+.gantt-row-settings { margin-top: 18px; background: white; padding: 16px 20px; border: 1px solid var(--line); border-radius: 12px; }
+.gantt-row-settings summary { cursor: pointer; font-size: 13px; font-weight: 500; }
+.gantt-row-settings summary span { margin-left: 12px; color: #657084; font-size: 12px; font-weight: 400; }
+.gantt-order-list { margin-top: 16px; display: grid; gap: 10px; }
+.gantt-order-list>div { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.gantt-order-list>div>span { flex: 1; font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.gantt-order-list button { min-width: 34px; min-height: 36px; background: #f0f3f8; border-radius: 6px; color: #344760; }
+.gantt-order-list select { font-size: 12px; width: 90px; }
+.gantt-presentation { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; padding: 22px; margin: 0; border: 0; color: #26344b; background: #f6f7f9; overflow: auto; }
+.gantt-presentation::backdrop { background: #192d49; }
+.gantt-present-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin-bottom: 20px; }
+.gantt-present-toolbar>strong { font-size: 16px; margin-right: auto; }
+.gantt-present-toolbar>.gantt-field { display: flex; align-items: center; gap: 12px; }
+.gantt-present-toolbar>div { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .gantt-frozen-columns { width: 225px; }
+  .gantt-settings { padding: 16px; }
+  .gantt-filter-row, .gantt-range-row { gap: 12px; }
+  .gantt-field { min-width: 0; flex: 1 1 140px; }
+  .gantt-field :is(input, select) { width: 100%; min-width: 0; font-size: 16px; }
+  .gantt-export-actions { width: 100%; margin-left: 0; }
+  .gantt-export-actions button { flex: 1; font-size: 12px; padding-left: 10px; padding-right: 10px; }
+  .gantt-range-row>.secondary-button { min-height: 42px; flex: 1; }
+  .gantt-order-list>div { flex-wrap: wrap; }
+  .gantt-order-list>div>span { flex-basis: 100%; }
+  .gantt-presentation { padding: 14px; }
+  .gantt-present-toolbar { gap: 12px; }
+  .gantt-present-toolbar>.gantt-field { flex-basis: 100%; }
+}
+@media print {
+  .gantt-frozen-columns { display: none; }
+  .workspace-sidebar, .workspace-header, .page-heading, .demo-banner, .gantt-settings, .gantt-row-settings, .gantt-detail, .gantt-present-toolbar, .gantt-notice { display: none !important; }
+  .workspace-main { margin: 0; padding: 0; }
+  .gantt-presentation { position: static; height: auto; padding: 0; }
+  .gantt-chart-shell, .gantt-chart-scroll { border: 0; overflow: visible; }
+  .gantt-chart-scroll svg { width: 100%; height: auto; }
+}

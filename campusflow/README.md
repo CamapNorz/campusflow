@@ -1,6 +1,10 @@
-# React + Vite
+# CampusFlow｜畢業專題工作室
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+學生小組與指導老師的繁體中文專題管理網站。新版操作方式、啟動指令與驗證範圍請見 [使用與開發指南](WORKSPACE_GUIDE.md)，設計紀錄請見 [DESIGN.md](DESIGN.md)。
+
+快速啟動：`npm ci` → `npm run dev`。開啟本機網址後可使用登入頁的「先看看示範工作室」，或直接開啟 `/?demo=1`。
+
+以下保留原始 Vite 開發參考。
 
 Currently, two official plugins are available:
 

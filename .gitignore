@@ -1,0 +1,10 @@
+# Local implementation and verification helpers (not application source).
+/redesign.mjs
+/cleanup.mjs
+/final-fixes.mjs
+/review-fixes.mjs
+/inspect.cjs
+/check-flows.cjs
+/format-css.mjs
+/gantt-upgrade.mjs
+/gantt-qa.cjs
