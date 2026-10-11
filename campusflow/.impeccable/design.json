@@ -1,10 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-18T00:00:00+08:00",
+  "generatedAt": "2026-10-11T18:57:36.0070475+08:00",
   "title": "Design System: CampusFlow",
   "extensions": {
     "typographyMeta": {
-      "report": { "displayName": "Offline report text", "purpose": "Microsoft JhengHei with Arial/sans-serif fallback only inside the self-contained Gantt SVG/PNG; application UI retains DM Sans/Noto Sans TC." }
+      "report": { "displayName": "Offline report text", "purpose": "Microsoft JhengHei with Arial/sans-serif fallback only inside the self-contained Gantt SVG/PNG; application UI retains DM Sans/Noto Sans TC." },
+      "file-guidelines-heading": { "displayName": "File guidance heading", "purpose": "Section headings only within file collaboration guidelines." },
+      "file-guidelines-body": { "displayName": "File guidance reading text", "purpose": "Desktop paragraphs and rule descriptions, with descriptions limited to 70ch." },
+      "file-guidelines-field": { "displayName": "File guidance field", "purpose": "Desktop textarea and field label text; labels use weight 600 and textareas use 1.8 line-height." },
+      "file-guidelines-rule-title": { "displayName": "File guidance rule title", "purpose": "Definition-list titles retain this role on desktop and mobile." },
+      "file-guidelines-mobile-body": { "displayName": "File guidance mobile reading text", "purpose": "Paragraphs and descriptions at the surface's narrow breakpoint." },
+      "file-guidelines-mobile-textarea": { "displayName": "File guidance mobile textarea", "purpose": "Readable notice and manual-copy textareas at the surface's narrow breakpoint." },
+      "file-guidelines-filename": { "displayName": "Filename example", "purpose": "Scoped monospace examples distinguish extensions and version suffixes; long filenames wrap." }
     },
     "shadows": [
       { "name": "edit-dialog", "value": "0 20px 60px #14274630", "purpose": "Separate the native task editor from the dimmed workspace." },
@@ -19,7 +26,9 @@
       { "name": "mobile", "value": "600px" },
       { "name": "navigation-collapse", "value": "900px" },
       { "name": "compact-desktop", "value": "1200px" },
-      { "name": "wide-desktop", "value": "1700px" }
+      { "name": "wide-desktop", "value": "1700px" },
+      { "name": "file-guidelines-stack", "value": "1100px" },
+      { "name": "file-guidelines-single-column", "value": "650px" }
     ]
   },
   "components": [
@@ -37,7 +46,9 @@
     "overview": "Navy navigation frames a light, practical graduation-project workspace. Traditional Chinese copy and restrained blue actions make the next step clear.",
     "keyCharacteristics": ["Flat tonal surfaces", "Clear task hierarchy", "Compact desktop information", "Readable mobile forms", "Precise time geometry and complete report labels"],
     "rules": [
-      { "name": "The Action Color Rule", "body": "Use blue for interaction and purple for completion; do not introduce green as a new brand accent.", "section": "colors" }
+      { "name": "The Action Color Rule", "body": "Use blue for interaction and purple for completion; do not introduce green as a new brand accent.", "section": "colors" },
+      { "name": "The File Guidelines Reading Rule", "body": "The `file-guidelines-*` typography roles apply only to the file-collaboration guidance surface; they do not replace the incumbent title/body/label roles. Section headings use the scoped heading role, paragraphs and rule descriptions use the scoped body role, and field labels and desktop textareas use the scoped field role. Rule titles retain their scoped weight and size on desktop and mobile. At the surface's narrow breakpoint, paragraphs and descriptions use the mobile body role and textareas use the mobile textarea role. Filename examples use the scoped monospace role so extensions and version suffixes stay distinguishable. Desktop textareas use a 1.8 line-height; field labels use weight 600. Descriptions are limited to 70ch and long text wraps rather than clipping.", "section": "typography" },
+      { "name": "The Temporary Notice Rule", "body": "The notice is held only in component memory and resets to the blank template when the page is exited or reloaded. It is not an autosaved draft or a backend operation. Clipboard actions report their result in a polite status region and disable while copying; failure exposes selectable rule text or directs the reader to select the existing notice manually. Keep the scope note that cloud permissions and versions are managed by the original storage service. This page neither uploads files nor sends group messages.", "section": "components" }
     ],
     "dos": ["Preserve keyboard focus and written status labels.", "Check navigation at 900px and content reflow at 600px.", "Keep Gantt frozen labels at 450px desktop and 225px mobile; preserve full report date columns and wrapped task titles.", "Use actual timestamps for bars, diamonds for equal endpoints and dagger marks for fallback dates.", "Keep full filtered-range PNG/SVG exports, adaptive day/week/month/fit scales and native presentation-dialog focus return."],
     "donts": ["Do not remove demo labeling.", "Do not add decorative hover scaling or elevated metric cards.", "Do not reintroduce slogans in functional headings.", "Do not apply the offline report font stack to the surrounding application UI."]

@@ -40,6 +40,32 @@ typography:
   report:
     fontFamily: "Microsoft JhengHei, Arial, sans-serif"
     fontSize: "12px"
+  file-guidelines-heading:
+    fontFamily: "DM Sans, Noto Sans TC, sans-serif"
+    fontSize: "18px"
+    lineHeight: 1.5
+  file-guidelines-body:
+    fontFamily: "DM Sans, Noto Sans TC, sans-serif"
+    fontSize: "14px"
+    lineHeight: 1.85
+  file-guidelines-field:
+    fontFamily: "DM Sans, Noto Sans TC, sans-serif"
+    fontSize: "14px"
+  file-guidelines-rule-title:
+    fontFamily: "DM Sans, Noto Sans TC, sans-serif"
+    fontSize: "15px"
+    fontWeight: 600
+  file-guidelines-mobile-body:
+    fontFamily: "DM Sans, Noto Sans TC, sans-serif"
+    fontSize: "15px"
+    lineHeight: 1.85
+  file-guidelines-mobile-textarea:
+    fontFamily: "DM Sans, Noto Sans TC, sans-serif"
+    fontSize: "16px"
+    lineHeight: 1.8
+  file-guidelines-filename:
+    fontFamily: "ui-monospace, Consolas, monospace"
+    fontSize: "13px"
 rounded:
   ordering: "6px"
   field: "8px"
@@ -113,6 +139,8 @@ The Gantt report alone uses Microsoft JhengHei, Arial, sans-serif intentionally,
 
 Page headings use the headline token; panel headings use title. Body copy is generally 13px, compact supporting information 10–12px on desktop. The overview progress value is 38px, weight 600; the summary headline is 23px, weight 600. Avoid extending these compact desktop sizes into new mobile reading surfaces: the final mobile overrides raise task names to 14px, secondary task/member information to 12px, and form inputs to 16px.
 
+**The File Guidelines Reading Rule.** The `file-guidelines-*` typography roles apply only to the file-collaboration guidance surface; they do not replace the incumbent title/body/label roles. Section headings use the scoped heading role, paragraphs and rule descriptions use the scoped body role, and field labels and desktop textareas use the scoped field role. Rule titles retain their scoped weight and size on desktop and mobile. At the surface's narrow breakpoint, paragraphs and descriptions use the mobile body role and textareas use the mobile textarea role. Filename examples use the scoped monospace role so extensions and version suffixes stay distinguishable. Desktop textareas use a 1.8 line-height; field labels use weight 600. Descriptions are limited to 70ch and long text wraps rather than clipping.
+
 ## Layout
 
 Desktop uses a fixed 246px sidebar and 76px header. The main area has a matching left offset, 112px top padding, 36px horizontal padding, and a 1850px maximum width. Overview panels use a 1.65:1 grid with a 26px gap; the four-item metrics strip is flat and divided rather than four floating cards.
@@ -123,6 +151,8 @@ Desktop uses a fixed 246px sidebar and 76px header. The main area has a matching
 - At 1700px and above, main side padding grows to 50px and overview panels gain space.
 
 Calendar retains an internal horizontal overflow surface and a 480px minimum grid below 900px. The new Gantt uses a scrollable SVG report, at least 1040px wide, with frozen label columns 450px wide on desktop. At 600px and below, the frozen overlay clips to 225px so the task title stays visible without covering the timeline; underlying date columns and exported report retain their full geometry. Do not force these data views to shrink until labels become unreadable.
+
+File guidelines use a reading-first desktop grid: rules take 1.35fr and reference examples plus the notice template take 1fr, with the existing section gap. At 1100px and below, the rules sit above two reference columns. At 650px and below, the references become one column and rules-panel padding reduces from 24px to 18px. These surface breakpoints supplement the existing workspace navigation and content breakpoints.
 
 ## Elevation & Depth
 
@@ -147,6 +177,12 @@ Use the frontmatter radii: compact controls, slightly softer navigation, rounded
 - **Gantt:** date-range controls include the whole selected end date; day, week, month and fit scales adapt ticks without rounding task bars to days. Geometry uses actual timestamps, and labels show date and minute. Equal start/end times use a diamond; clipped bars have boundary arrows. A dagger identifies creation-time or completion-time fallback dates. Missing or reversed dates and out-of-range rows are counted explicitly. Weekend shading and the current-time dashed line provide context. Rows support keyboard selection and show exact details; order controls use 6px corners and retain saved colors.
 - **Gantt presentation/export:** native full-viewport modal dialog offers scale and export controls; Escape or close returns focus to the launch button. SVG/PNG export includes every row in the selected range/filter, full wrapped task titles, dates, timezone, filter context, legend and demo marking, independent of scroll position. Export buttons disable during processing; invalid/oversized layouts show guidance. PNG has a bounded raster size and recommends SVG when too large. Printing hides controls and frozen duplicates.
 - **Legacy views:** scoped bridge rules bring calendar, rankings and account controls into the same palette and spacing. Gantt now has its own report component and stylesheet. Prefer existing semantic classes for new UI; audit bridge specificity before changing shared utility styling.
+
+### File collaboration guidelines
+
+This surface inherits Project Studio's navy/light palette, flat white rules panel, fine dividers, and existing primary/secondary buttons. It pairs a semantic definition list of rules with filename/preview examples and an editable update-notice template; the scoped typography roles support extended reading without changing the shared design system. Reference sections remain flat rather than becoming elevated cards.
+
+**The Temporary Notice Rule.** The notice is held only in component memory and resets to the blank template when the page is exited or reloaded. It is not an autosaved draft or a backend operation. Clipboard actions report their result in a polite status region and disable while copying; failure exposes selectable rule text or directs the reader to select the existing notice manually. Keep the scope note that cloud permissions and versions are managed by the original storage service. This page neither uploads files nor sends group messages.
 
 ## Do's and Don'ts
 

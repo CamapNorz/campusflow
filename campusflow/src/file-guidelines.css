@@ -1,0 +1,26 @@
+.file-guidelines { display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(0, 1fr); gap:26px; align-items:start; }
+.file-rules, .file-reference { min-width:0; }
+.file-rules { background:#fff; border:1px solid var(--line); border-radius:14px; padding:24px; }
+.file-guidelines h2 { font-size:18px; line-height:1.5; margin-bottom:10px; }
+.file-guidelines p, .file-guidelines dd { font-size:14px; line-height:1.85; overflow-wrap:anywhere; }
+.file-guidelines p { color:var(--muted); }
+.file-guidelines .section-title { flex-wrap:wrap; gap:12px; }
+.file-guidelines .section-title h2 { margin:0; }
+.file-intro { margin:14px 0 24px; }
+.file-rule-list { margin:0; }
+.file-rule-list > div { padding:18px 0; border-top:1px solid var(--line); }
+.file-rule-list dt { font-size:15px; font-weight:600; margin-bottom:6px; }
+.file-rule-list dd { margin:0; color:var(--muted); max-width:70ch; }
+.file-guidelines .file-source-note { margin:12px 0 0; color:var(--ink); }
+.file-reference { display:grid; gap:28px; }
+.file-example { padding:0 0 22px; border-bottom:1px solid var(--line); }
+.file-example-list { list-style:none; padding:0; margin:18px 0; }
+.file-example-list li { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 12px; padding:10px 0; }
+.file-example-list span { color:var(--muted); font-size:13px; }
+.file-guidelines code { color:var(--ink); font-family:ui-monospace,Consolas,monospace; font-size:13px; overflow-wrap:anywhere; }
+.file-field { display:block; font-size:14px; font-weight:600; margin:14px 0 8px; }
+.file-guidelines textarea { display:block; width:100%; resize:vertical; font-size:14px; line-height:1.8; margin:8px 0 14px; }
+.file-guidelines .file-copy-status { color:var(--ink); margin:12px 0; }
+.file-scope-note { grid-column:1 / -1; margin:0; }
+@media (max-width:1100px) { .file-guidelines { grid-template-columns:1fr; } .file-reference { grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); } .file-example { border-bottom:0; } }
+@media (max-width:650px) { .file-reference { grid-template-columns:1fr; } .file-rules { padding:18px; } .file-guidelines p, .file-guidelines dd { font-size:15px; } .file-guidelines textarea { font-size:16px; } .file-example { border-bottom:1px solid var(--line); } }

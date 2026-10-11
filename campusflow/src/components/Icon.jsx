@@ -1,4 +1,6 @@
 const paths = {
+  files: 'M14 2H6v20h14V8z M14 2v6h6 M9 12h8 M9 16h8',
+  copy: 'M9 9h12v12H9z M15 9V3H3v12h6',
   home: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   tasks: 'M9 5h12 M9 12h12 M9 19h12 M3 5l1 1 2-2 M3 12l1 1 2-2 M3 19l1 1 2-2',
   calendar: 'M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16 M8 14h2 M14 14h2',
