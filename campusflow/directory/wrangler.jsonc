@@ -1,0 +1,15 @@
+{
+  "name": "campusflow-drive-directory",
+  "main": "index.js",
+  "compatibility_date": "2026-10-10",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "vars": {
+    "FIREBASE_PROJECT": "campusflow-3edb8",
+    "GROUP_ID": "2LpXms9L1hDyM2AS37e6",
+    "ROOT_FOLDER": "1w-jkzwHLj1oOL3pplpuJIAPk-LPvYWM2",
+    "ALLOWED_ORIGINS": "https://campusflow-3edb8.web.app,https://campusflow-3edb8.firebaseapp.com"
+  },
+  "ratelimits": [{ "name": "DIRECTORY_LIMITER", "namespace_id": "823174354468", "simple": { "limit": 60, "period": 60 } }]
+}

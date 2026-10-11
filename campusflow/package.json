@@ -10,15 +10,19 @@
     "worker:deploy": "wrangler deploy",
     "worker:dev": "wrangler dev",
     "lint": "eslint .",
-    "test": "node --test src/lib/*.test.js",
+    "test": "node --test src/lib/*.test.js directory/*.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
     "firebase": "^12.12.1",
+    "jose": "^6.2.12",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,18 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { PROJECT_FOLDER_ID, FOLDER_MIME, listDriveFiles, getDriveFolder, driveLink, filterDriveFiles, sameNamePreviews, driveErrorMessage } from './drive.js'
+import { PROJECT_FOLDER_ID, FOLDER_MIME, readProjectDirectory, driveLink, filterDriveFiles, sameNamePreviews, driveErrorMessage } from './drive.js'
 
-test('Drive requests stay inside selected parent, exclude trash and request metadata only with explicit pagination', async () => {
+test('Directory client sends Firebase bearer token, selected folder and explicit pagination only to the configured backend', async () => {
   const controller = new AbortController()
   let calls = 0
-  const result = await listDriveFiles('temporary-token', PROJECT_FOLDER_ID, { pageToken: 'opaque+/page', signal: controller.signal, fetcher: async (url, options) => {
+  const result = await readProjectDirectory('temporary-token', PROJECT_FOLDER_ID, { endpoint:'https://directory.example', pageToken: 'opaque+/page', signal: controller.signal, fetcher: async (url, options) => {
     calls++
     const params = new URL(url).searchParams
-    assert.equal(params.get('q'), `'${PROJECT_FOLDER_ID}' in parents and trashed = false`)
+    assert.equal(new URL(url).origin, 'https://directory.example')
+    assert.equal(params.get('folderId'), PROJECT_FOLDER_ID)
     assert.equal(params.get('pageToken'), 'opaque+/page')
-    assert.equal(params.get('supportsAllDrives'), 'true')
-    assert.equal(params.get('fields').includes('owners'), false)
-    assert.equal(params.get('fields').includes('content'), false)
+    assert.equal(params.has('q'), false)
     assert.equal(options.headers.Authorization, 'Bearer temporary-token')
     assert.equal(options.signal, controller.signal)
     assert.equal(options.cache, 'no-store')
@@ -21,21 +20,21 @@ test('Drive requests stay inside selected parent, exclude trash and request meta
   assert.equal(calls, 1)
   assert.equal(result.nextPageToken, 'next')
   assert.equal(result.incompleteSearch, true)
-  await assert.rejects(listDriveFiles('token', "id' in parents or true", { fetcher: () => assert.fail('Invalid ID must not send a request') }), /Invalid folder/)
+  await assert.rejects(readProjectDirectory('token', "id' in parents or true", { fetcher: () => assert.fail('Invalid ID must not send a request') }), /Invalid folder/)
 })
 
 test('Drive metadata errors distinguish inaccessible folders, expiration and disabled APIs without exposing raw server text', async () => {
   for (const status of [401, 404]) {
-    await assert.rejects(getDriveFolder('token', PROJECT_FOLDER_ID, { fetcher: async () => ({ ok: false, status, json: async () => ({ error: { message: 'private backend details' } }) }) }), error => {
+    await assert.rejects(readProjectDirectory('token', PROJECT_FOLDER_ID, { endpoint:'https://directory.example', fetcher: async () => ({ ok: false, status, json: async () => ({ error: { message: 'private backend details' } }) }) }), error => {
       assert.equal(error.status, status)
       assert.equal(error.message.includes('private'), false)
-      assert.match(driveErrorMessage(error), status === 401 ? /過期/ : /權限/)
+      assert.match(driveErrorMessage(error), status === 401 ? /過期/ : /專題空間/)
       return true
     })
   }
   assert.match(driveErrorMessage({ status: 403, reason: 'SERVICE_DISABLED' }), /API/)
   assert.match(driveErrorMessage({ status: 403, reason: 'userRateLimitExceeded' }), /稍後/)
-  await assert.rejects(getDriveFolder('token', PROJECT_FOLDER_ID, { fetcher: async () => ({ ok: true, json: async () => ({ mimeType: 'image/png' }) }) }), /Not a folder/)
+  await assert.rejects(readProjectDirectory('token', PROJECT_FOLDER_ID), /endpoint unavailable/)
 })
 
 test('Drive links reject injected schemes and offsite URLs while keeping native Google Docs links', () => {

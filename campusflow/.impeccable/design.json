@@ -173,7 +173,7 @@
       },
       {
         "name": "The Directory Session Rule",
-        "body": "Drive OAuth access tokens and directory metadata stay in component memory only. The account/group-keyed component remount isolates sessions when either identity changes; leaving the directory, reload or local disconnect clears its connection state. Disconnect does not revoke the Google OAuth grant. The feature requests metadata read-only access, then queries the configured project folder and entered children; the grant itself is broader than that folder. File and image links open Google Drive. This directory does not copy, download, upload or delete Drive content.",
+        "body": "The primary action is 讀取雲端目錄; an open session offers 關閉目錄. Each directory request obtains the current CampusFlow user's Firebase ID token. The backend verifies its signature, checks that the user's current profile belongs to the designated project group, and reads the corresponding membership document under the caller's Firestore rules. A dedicated service account requests only `drive.metadata.readonly`; the backend enforces the configured project root and its descendants. Directory metadata stays in component memory only. The account/group-keyed component remount isolates sessions when either identity changes; leaving the directory, reload or closing the directory clears its session and metadata. There is no per-user Drive OAuth consent flow. File and image links open Google Drive and still require the reader's own Drive sharing permissions. This directory does not copy, download, upload or delete Drive content.",
         "section": "components"
       }
     ],

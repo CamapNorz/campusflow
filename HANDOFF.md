@@ -2,6 +2,17 @@
 
 整理日期：2026-10-11。此文件是交接入口；實作以原始碼及目前 Git 狀態為準。
 
+## 2026-10-11 接續：取消個人 Drive OAuth，改後端唯讀目錄
+
+- 使用者指定空間 2LpXms9L1hDyM2AS37e6，授權专用服務帳號與 root-folder reader 共享，並明確同意將專用金鑰存 Cloudflare Worker secret。未公開資料夾，未授予專案 IAM 角色。
+- 新增 directory/index.js、directory/index.test.js、directory/wrangler.jsonc，獨立 campusflow-drive-directory Worker 已部署；保留原 Discord Worker、Firebase rules 與所有功能。
+- 前端改以 Firebase ID token 呼叫後端，不再使用 Google Drive 個人 restricted scope。安全細節、部署命令、原檔權限與金鑰維護在 campusflow/GOOGLE_DRIVE_SETUP.md。
+- 真正服務帳號根目錄／子資料夾讀取成功；正式端點匿名／偽造 token／不允許 origin 拒絕。21 項測試、lint、build、Chrome 合成帳號與示範 desktop/mobile QA 通過。真實組員登入尚未驗收。
+- 專題空間成員可查看 reader 帳號可讀到的此專題檔名；原檔開啟仍受個人 Drive 權限限制。不要將私人資料放到專題根內。
+- 金鑰備份是工作區 output/campusflow-release/drive-reader-private-v01.json，ACL 限本機使用者；未進 Git，不能自行刪除。Worker secret 名 DRIVE_SERVICE_ACCOUNT。讀取 .env.example 的公開 endpoint 建置；不得將金鑰放 VITE_ 變數。
+- 相容更新 Firebase 至 12.19.0、React Router 至 7.18.4，覆寫 gRPC 至相同主版的 1.14.6；npm audit --omit=dev 為 0 公告。開發工具仍有 20 項公告，未宣稱全依賴零風險。舊 OAuth 描述屬歷史紀錄，以本段與最新版 setup 文件為準。
+- 前端已僅部署 Firebase Hosting，CLI release complete；獨立 reviewer 對兩項文件／錯誤文案修正均判定 resolved（ship）。最終 Chrome v03 檢查通過。正式入口維持 https://campusflow-3edb8.web.app/?view=drive。
+
 ## 2026-10-11 接續：雲端檔案目錄
 
 - 使用者要求從既有雲端讀取檔案並顯示目錄。新增側欄「雲端檔案目錄」與 `?view=drive`，沿用先前正式站台。

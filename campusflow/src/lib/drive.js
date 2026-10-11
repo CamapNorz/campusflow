@@ -1,5 +1,4 @@
 export const PROJECT_FOLDER_ID = '1w-jkzwHLj1oOL3pplpuJIAPk-LPvYWM2'
-export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.metadata.readonly'
 export const FOLDER_MIME = 'application/vnd.google-apps.folder'
 const validId = value => typeof value === 'string' && /^[\w-]{10,160}$/.test(value)
 
@@ -16,24 +15,12 @@ async function driveRequest(token, url, { signal, fetcher = fetch } = {}) {
   return data
 }
 
-export async function getDriveFolder(token, folderId, options) {
+export async function readProjectDirectory(token, folderId, { pageToken, endpoint = import.meta.env?.VITE_DIRECTORY_URL, ...options } = {}) {
   if (!validId(folderId)) throw new Error('Invalid folder ID')
-  const params = new URLSearchParams({ fields: 'id,name,mimeType', supportsAllDrives: 'true' })
-  const folder = await driveRequest(token, `https://www.googleapis.com/drive/v3/files/${folderId}?${params}`, options)
-  if (folder.mimeType !== FOLDER_MIME) throw new Error('Not a folder')
-  return folder
-}
-
-export async function listDriveFiles(token, folderId, { pageToken, ...options } = {}) {
-  if (!validId(folderId)) throw new Error('Invalid folder ID')
-  const params = new URLSearchParams({
-    q: `'${folderId}' in parents and trashed = false`,
-    fields: 'nextPageToken,incompleteSearch,files(id,name,mimeType,modifiedTime,size,webViewLink)',
-    pageSize: '100', orderBy: 'folder,name_natural', spaces: 'drive',
-    supportsAllDrives: 'true', includeItemsFromAllDrives: 'true',
-  })
+  const params = new URLSearchParams({ folderId })
   if (pageToken) params.set('pageToken', pageToken)
-  return driveRequest(token, `https://www.googleapis.com/drive/v3/files?${params}`, options)
+  if (!endpoint) throw new Error('Directory endpoint unavailable')
+  return driveRequest(token, `${endpoint}/directory?${params}`, options)
 }
 
 export function driveLink(file) {
@@ -73,11 +60,11 @@ export function filterDriveFiles(files, search, kind, order) {
 }
 
 export function driveErrorMessage(error) {
-  if (error.status === 401) return 'Drive 授權已過期，請重新連接。'
-  if (error.status === 404) return '找不到此資料夾或沒有查看權限。請確認目前 Google 帳號已加入雲端共用。'
+  if (error.status === 401) return '登入已過期，請重新登入 CampusFlow 後讀取目錄。'
+  if (error.status === 404) return '找不到此資料夾或目錄服務尚未設定。請確認專題空間，並聯絡負責人檢查目錄服務。'
   if (error.reason === 'SERVICE_DISABLED' || error.reason === 'accessNotConfigured') return 'Drive API 尚未啟用，請聯絡專題負責人。'
   if (error.status === 429 || ['rateLimitExceeded', 'userRateLimitExceeded'].includes(error.reason)) return 'Google 暫時限制讀取次數，請稍後重新整理。'
-  if (error.status === 403) return '無法讀取 Drive。請確認唯讀授權及資料夾共享權限，再重新連接。'
+  if (error.status === 403) return '此目錄僅限指定專題空間的成員。請確認加入正確空間；若仍無法讀取，請聯絡專題負責人確認目錄服務。'
   return '無法讀取雲端目錄，請確認網路後重新整理。'
 }
 

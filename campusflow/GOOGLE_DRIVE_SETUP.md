@@ -1,38 +1,37 @@
-# Google Drive 目錄
+# Google Drive 目錄（後端唯讀版）
 
-## 已完成的接線
+## 組員使用
 
-- 使用既有 Firebase Google 登入帳號，以 `reauthenticateWithPopup` 單獨取得 Drive 授權，不更換 CampusFlow 帳號。
-- CampusFlow 專案 `campusflow-3edb8` 的 Google Drive API 已啟用。
-- 預設專題根目錄已經由 Drive 連接器確認；ID 在 `src/lib/drive.js` 的 `PROJECT_FOLDER_ID`。網頁只查詢此根目錄與使用者點入的子資料夾，不掃描整個 Drive，也不跟隨捷徑到其他樹。
-- 組員登入後開啟「雲端檔案目錄」，按「連接 Google Drive」。Google 的授權畫面需由本人確認；同時必須有原資料夾的共用權限。
-- 授權範圍為 `https://www.googleapis.com/auth/drive.metadata.readonly`。這是 Google 的檔案中繼資料唯讀範圍，涵蓋範圍比單一資料夾廣；程式將讀取限制在上述專題目錄。
+正式入口：https://campusflow-3edb8.web.app/?view=drive
 
-## OAuth 設定與驗收界線
+登入 CampusFlow、加入指定專題空間，按「讀取雲端目錄」。不再要求個人 Google Drive OAuth 權限，所以不需略過「未驗證應用程式」警告。開啟原檔或同名 PNG／JPG 截圖仍由 Google Drive 檢查個人的共用權限。
 
-目前已完成程式、API 啟用、示範瀏覽器驗證及模擬授權／API 測試，**尚未完成真實使用者的 Google 授權驗收**。既有 Firebase 登入能用，不代表額外的 Drive scope 一定獲准。
+目錄支援子資料夾、麵包屑、已載入項目的搜尋／類型／排序、分頁與重新整理。同名截圖只比對已載入內容；沒有遞迴搜尋、上傳、刪除或搬移操作。關閉目錄、離頁、換帳號／組別或重新整理會清空本頁資料。示範模式只使用虛構資料，不讀取真實目錄。
 
-如果 Google 拒絕授權，專案擁有者應在 [Google Auth Platform](https://console.cloud.google.com/auth/overview?project=campusflow-3edb8) 核對：
+## 後端與權限
 
-1. Data Access 加入上面的 `drive.metadata.readonly` scope。
-2. 若 External 應用程式處於 Testing，Audience 的 Test users 包含要驗收的 Google 帳號。
-3. 此 scope 屬 Restricted。對外發布時依 Google 的要求完成適用的驗證；不要把測試成功當成所有帳號都可使用。
-4. 維持既有 OAuth client 與 Firebase Google provider，不要為了目錄替換登入 client、公開資料夾或改 Firestore rules。
+- 獨立 Worker：campusflow-drive-directory，設定 directory/wrangler.jsonc；既有 Discord Worker 不改。
+- 每次請求驗證 Firebase ID token 的 RS256 簽章、專案、issuer、有效期限與登入時間。
+- 以呼叫者 Firebase 憑證讀取 Firestore 的當前個人 groupId 與指定群組的 members 文件；需兩者符合。沿用原安全規則，不授予服務帳號 Firestore 管理權限。
+- 固定允許空間與根資料夾設定在 Worker vars。每次讀取逐層確認是根資料夾的後代，拒絕垃圾桶、捷徑、循環與超過 24 層的路徑。
+- 專用帳號 campusflow-drive-reader@campusflow-3edb8.iam.gserviceaccount.com 沒有專案 IAM 角色，只以 reader 共用此專題根資料夾。OAuth 僅用 drive.metadata.readonly，僅回傳名稱／ID／類型／時間／大小／原檔連結，不取得內容、擁有者 email 或縮圖。
+- 金鑰存 Cloudflare DRIVE_SERVICE_ACCOUNT Secret，絕不放 VITE_ 變數、GitHub 或 dist。請求和目錄無應用程式日誌或持久儲存，回應 private,no-store。只允許兩個正式 Hosting origin；每位驗證使用者每個 Cloudflare 位置約 60 次／分鐘，這是濫用限制而非精確帳務上限。
+- 指定空間的合格成員可以看到專題內檔名；即使個別原檔未對該成員共用，目錄也可能顯示名稱。若子資料夾含私人檔案，請放到此專題根之外，或取消對服務帳號的共用。新增其他空間前必須取得明確授權。
 
-參考：[Google OAuth consent 設定](https://developers.google.com/workspace/guides/configure-oauth-consent)、[Drive scope 分類](https://developers.google.com/workspace/drive/api/guides/api-specific-auth)。
+## 維護與部署
 
-## 資料與權限
+前端 public endpoint：.env.example 的 VITE_DIRECTORY_URL，複製至本機環境設定後建置。不要複製服務帳號金鑰到前端。
 
-- 目錄讀取直接從使用者瀏覽器到 Google Drive；只取 ID、名稱、類型、更新時間、大小及開啟連結，不取內容、擁有者 email 或縮圖內容。
-- Google access token 與檔案中繼資料只放元件記憶體，不存 localStorage、Firestore、公開 JSON 或 Git。離開頁面、換帳號／組別或重新整理會清空；Google 登入本身仍沿用既有 Firebase 機制。
-- 「中斷連接」只清空本頁憑證，不等於撤銷 Google 帳號對應用程式的授權。
-- 授權過期會清空目錄並提示重新連接；沒權限的資料夾不當成空目錄。Google 權限維持原狀。
-- 沒有刪檔、上傳、搬動、重新命名或分享操作。檔案及 PNG／JPG 同名截圖在 Google Drive 開啟。
-- 搜尋、篩選與截圖比對只作用於目前資料夾已載入的項目。每頁 100 筆；有下一頁時必須按「載入更多檔案」。重新整理會重新讀取目前資料夾。
-- 示範模式只使用程式內虛構資料，不要求授權、不發送 Drive 請求。
+後端：npx wrangler deploy --config directory/wrangler.jsonc。秘密更新用 wrangler secret put DRIVE_SERVICE_ACCOUNT --config directory/wrangler.jsonc，直接透過安全 stdin 傳入；不要在 shell 命令或日誌印出金鑰。
 
-## 維護與測試
+前端：npm run lint、npm test、npm run build 後，firebase deploy --only hosting --project campusflow-3edb8 --non-interactive。不要部署既有 Firestore rules 或 Discord Worker。
 
-- `src/lib/drive.test.js` 檢查 parent query、分頁、metadata 欄位、ID 驗證、安全連結、授權／權限錯誤、版本截圖及排序。
-- 本機瀏覽器腳本在專題工作區 `output/campusflow-release/drive-qa-v01.cjs`，模擬授權與 API 回應，不含憑證。真實授權需用原有權限的測試帳號另行驗收。
-- 驗收順序：登入 → 同意 Drive 唯讀授權 → 看見根目錄 → 點入子資料夾 → 開啟檔案／截圖 → 在 Drive 新增版本後重新整理 → 使用未共享帳號確認拒絕存取。
+本機備份金鑰在工作區 output/campusflow-release/drive-reader-private-v01.json，Windows ACL 已限制目前使用者。未納入 Git，使用者要求刪除任何檔案前須先取得同意。未設定自動輪替，後續需由管理者安排更新或撤銷。無需 Google end-user restricted-scope 驗證即可使用此後端流程；原 Google 登入 OAuth 設定維持不變。
+
+## 驗證界線
+
+21 項單元測試涵蓋 JWT 偽造／逾期／錯專案、成員與目前群組、資料夾範圍、匿名請求、CORS、限流及原功能。Chrome 的桌面／手機示範與合成已登入介面確認分頁去重、同名截圖、401／403 清空及無新增 Drive OAuth popup。
+
+已用真正專用帳號讀取根目錄與子資料夾，正式 Worker 拒絕匿名、偽造憑證與不允許的 origin。尚未代真實組員登入驗收；不要把上述檢查宣稱為跨帳號正式驗收。QA 保留 output/campusflow-release 的 v02 產物，不提交私人檔案名稱與金鑰。
+
+最後 v03 回歸亦通過。相容更新 Firebase／React Router，gRPC 以 overrides 鎖定已修補的相同主版；npm audit --omit=dev 為 0 公告。完整 audit 仍列開發工具 20 項公告（未打包進前端／目錄 Worker），不使用可能破壞功能的 audit fix --force。JS bundle 的大檔提示與 Browserslist 舊資料提示仍在，後續可另做效能／開發工具維護。

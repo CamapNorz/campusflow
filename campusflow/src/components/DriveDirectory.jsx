@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { getAuth, GoogleAuthProvider, reauthenticateWithPopup } from 'firebase/auth'
+import { getAuth } from 'firebase/auth'
 import Icon from './Icon'
-import { PROJECT_FOLDER_ID, DRIVE_SCOPE, FOLDER_MIME, getDriveFolder, listDriveFiles, driveLink, fileKind, sameNamePreviews, filterDriveFiles, driveErrorMessage, demoDriveFolders } from '../lib/drive'
+import { PROJECT_FOLDER_ID, FOLDER_MIME, readProjectDirectory, driveLink, fileKind, sameNamePreviews, filterDriveFiles, driveErrorMessage, demoDriveFolders } from '../lib/drive'
 import '../drive-directory.css'
 
 const kindNames = { folder: '資料夾', blender: 'Blender', image: '圖片', video: '影片', other: '文件／其他' }
@@ -47,10 +47,11 @@ export default function DriveDirectory({ demo = false, user }) {
       if (!request.pageToken) { setFiles([]); setNextPage(''); setUpdatedAt(null); setIncomplete(false) }
       try {
         const options = { signal: controller.signal }
-        const folder = demo ? { name: folderId === PROJECT_FOLDER_ID ? '示範專題' : path.at(-1).name } : await getDriveFolder(session.token, folderId, options)
-        const result = demo ? { files: demoDriveFolders[folderId] || [] } : await listDriveFiles(session.token, folderId, { ...options, pageToken: request.pageToken })
+        const authUser = demo ? null : getAuth().currentUser
+        if (!demo && authUser?.uid !== user?.uid) throw Object.assign(new Error('Login required'), {status:401})
+        const result = demo ? { folder: {name: folderId === PROJECT_FOLDER_ID ? '示範專題' : path.at(-1).name}, files: demoDriveFolders[folderId] || [] } : await readProjectDirectory(await authUser.getIdToken(), folderId, { ...options, pageToken: request.pageToken })
         if (!active) return
-        setFolderName(folder.name)
+        setFolderName(result.folder.name)
         setFiles(previous => [...new Map([...(request.pageToken ? previous : []), ...(result.files || [])].map(file => [file.id, file])).values()])
         setNextPage(result.nextPageToken || '')
         setIncomplete(previous => previous || Boolean(result.incompleteSearch))
@@ -58,14 +59,14 @@ export default function DriveDirectory({ demo = false, user }) {
       } catch (caught) {
         if (!active || caught.name === 'AbortError') return
         setError(driveErrorMessage(caught))
-        if (caught.status === 401 || (caught.status === 403 && ['insufficientPermissions', 'ACCESS_TOKEN_SCOPE_INSUFFICIENT'].includes(caught.reason))) {
+        if ([401, 403].includes(caught.status)) {
           setSession(null); setFiles([]); setNextPage(''); setUpdatedAt(null)
         }
       } finally { if (active) setLoading(false) }
     }
     load()
     return () => { active = false; controller.abort() }
-  }, [demo, session, folderId, path, request])
+  }, [demo, session, folderId, path, request, user?.uid])
 
   async function connect() {
     const authUser = getAuth().currentUser
@@ -73,22 +74,12 @@ export default function DriveDirectory({ demo = false, user }) {
     const epoch = connectionEpoch.current
     setConnecting(true); setError('')
     try {
-      const provider = new GoogleAuthProvider()
-      provider.addScope(DRIVE_SCOPE)
-      provider.setCustomParameters({ login_hint: authUser.email, prompt: 'consent' })
-      const result = await reauthenticateWithPopup(authUser, provider)
-      const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken
-      if (!token) throw new Error('Missing credential')
+      await authUser.getIdToken()
       if (epoch !== connectionEpoch.current) return
-      setRequest({ pageToken: '', revision: 0 }); setPath(initialPath); setSession({ token })
+      setRequest({ pageToken: '', revision: 0 }); setPath(initialPath); setSession({ connected: true })
     } catch (caught) {
       if (epoch !== connectionEpoch.current) return
-      const messages = {
-        'auth/popup-blocked': '瀏覽器擋住授權視窗，請允許彈出視窗後重試；手機請使用 Chrome 或 Safari。',
-        'auth/popup-closed-by-user': '授權視窗已關閉，尚未連接 Drive。',
-        'auth/user-mismatch': '請選擇與 CampusFlow 登入相同的 Google 帳號。',
-      }
-      setError(messages[caught.code] || 'Google 授權未完成。請確認帳號及應用程式授權設定，或先使用「在 Drive 開啟」。')
+      setError(driveErrorMessage(caught))
     } finally { if (epoch === connectionEpoch.current) setConnecting(false) }
   }
 
@@ -105,13 +96,13 @@ export default function DriveDirectory({ demo = false, user }) {
   const visible = filterDriveFiles(files, search, kind, order)
   return <section className="drive-directory" aria-label="雲端檔案目錄">
     <div className="drive-connection">
-      <div><h2>{demo ? '示範雲端目錄' : '專題共用資料夾'}</h2><p>{demo ? '以下是虛構示範檔案，可體驗資料夾瀏覽與篩選。' : '授權後讀取你有權查看的檔名、類型與更新時間。檔案內容在 Google Drive 開啟。'}</p></div>
+      <div><h2>{demo ? '示範雲端目錄' : '專題共用資料夾'}</h2><p>{demo ? '以下是虛構示範檔案，可體驗資料夾瀏覽與篩選。' : '專題成員可查看檔名、類型與更新時間。檔案內容在 Google Drive 開啟。'}</p></div>
       <div className="drive-actions">
-        {!demo && (session ? <button className="secondary-button" onClick={disconnect}>中斷連接</button> : <button className="primary-button" disabled={connecting} onClick={connect}>{connecting ? '等待 Google 授權…' : '連接 Google Drive'}</button>)}
+        {!demo && (session ? <button className="secondary-button" onClick={disconnect}>關閉目錄</button> : <button className="primary-button" disabled={connecting} onClick={connect}>{connecting ? '確認登入中…' : '讀取雲端目錄'}</button>)}
         {!demo && <a className="secondary-button" href={`https://drive.google.com/drive/folders/${folderId}`} target="_blank" rel="noopener noreferrer">在 Drive 開啟 <Icon name="arrow" size={16}/></a>}
       </div>
     </div>
-    {!demo && <p className="drive-privacy">唯讀連線；不會上傳、刪除或改動檔案。授權憑證與目錄只留在本頁記憶體，離頁後清空。Google 授權範圍涵蓋檔案中繼資料，本功能只查詢此專題資料夾及你點入的子資料夾。</p>}
+    {!demo && <p className="drive-privacy">目錄僅供指定專題空間的成員查看，離頁後清空。網站只讀取此專題資料夾內的檔案資訊；開啟原檔仍需 Google Drive 共用權限。</p>}
     {error && <div className="feedback error" role="alert">{error}</div>}
     {session ? <>
       <nav className="drive-breadcrumb" aria-label="雲端資料夾路徑">{path.map((folder, index) => <span key={folder.id}>{index > 0 && <span aria-hidden="true"> / </span>}{index === path.length - 1 ? <span aria-current="location">{folderName}</span> : <button className="text-action" onClick={() => navigate(path.slice(0, index + 1))}>{demo && index === 0 ? '示範專題' : folder.name}</button>}</span>)}</nav>
@@ -132,6 +123,6 @@ export default function DriveDirectory({ demo = false, user }) {
       </tbody></table></div>
       {!loading && !error && !visible.length && <div className="empty-message"><h3>{search || kind !== 'all' ? '沒有符合條件的已載入檔案' : '目前資料夾沒有檔案'}</h3><p>{search || kind !== 'all' ? '調整搜尋或類型篩選；如果還有下一頁，可繼續載入。' : '可回到上一層，或上傳到 Drive 後重新整理。'}</p></div>}
       {nextPage && <button className="secondary-button drive-more" disabled={loading} onClick={() => setRequest(previous => ({ ...previous, pageToken: nextPage }))}>載入更多檔案</button>}
-    </> : !error && <div className="empty-message"><Icon name="folder" size={28}/><h3>連接後顯示雲端目錄</h3><p>使用目前登入的 Google 帳號授權。組員需要先取得專題資料夾的共用權限。</p></div>}
+    </> : !error && <div className="empty-message"><Icon name="folder" size={28}/><h3>讀取後顯示雲端目錄</h3><p>使用 CampusFlow 登入即可讀取，無需另外授權 Google Drive。</p></div>}
   </section>
 }
