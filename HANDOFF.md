@@ -2,6 +2,15 @@
 
 整理日期：2026-10-11。此文件是交接入口；實作以原始碼及目前 Git 狀態為準。
 
+## 2026-10-11 正式發布
+
+- 使用者明確要求正式上線並取得可分享給組員的連結。正式入口：https://campusflow-3edb8.web.app（不加 `demo=1`）。
+- 已使用既有 Firebase 專案 `campusflow-3edb8` 執行 `firebase deploy --only hosting --project campusflow-3edb8 --non-interactive`，CLI 確認 release complete。沒有部署 Firestore rules、Discord Worker 或修改正式資料。
+- 發布的功能提交為 `7a48128a63a30f7e86c59a867d86bbf27419f381`。重新建置後部署，公開 HTML、JS 與 CSS 的 SHA-256 都與本機 dist 一致。
+- 全新瀏覽器環境確認 HTTPS 200、正式 Google 登入按鈕可見且可操作、沒有示範標示。線上示範檔案規範頁及 390px 版面通過，沒有瀏覽器執行錯誤。
+- 未代使用者登入 Google，未驗收跨帳號正式資料寫入；組員登入後使用組長提供的空間代碼加入。既有建置提示仍在。
+- 本機發布驗證腳本、截圖與 JSON 保留於 `../output/campusflow-release/`（相對本 Git 根目錄），不納入 Git。以下未部署描述均為先前工作的歷史紀錄，以本段為最新發布狀態。
+
 ## 2026-10-11 接續：檔案協作規範
 
 - 新增側欄「檔案協作規範」，支援 `?demo=1&view=files` 及既有組長／組員／老師示範角色。
